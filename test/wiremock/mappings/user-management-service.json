@@ -1,0 +1,74 @@
+{
+  "mappings": [
+    {
+      "priority": 10,
+      "request": {
+        "method": "GET",
+        "urlPathPattern": "/api/persons/by-profile/.*/contact"
+      },
+      "response": {
+        "status": 200,
+        "jsonBody": {
+          "email": "parent@example.com",
+          "phone": "+573000000000"
+        },
+        "headers": { "Content-Type": "application/json" }
+      }
+    },
+    {
+      "priority": 1,
+      "request": {
+        "method": "GET",
+        "urlPath": "/api/persons/email-exists",
+        "queryParameters": {
+          "email": { "equalTo": "existing@example.com" }
+        }
+      },
+      "response": {
+        "status": 200,
+        "jsonBody": true,
+        "headers": { "Content-Type": "application/json" }
+      }
+    },
+    {
+      "priority": 10,
+      "request": {
+        "method": "GET",
+        "urlPathPattern": "/api/persons/email-exists.*"
+      },
+      "response": {
+        "status": 200,
+        "jsonBody": false,
+        "headers": { "Content-Type": "application/json" }
+      }
+    },
+    {
+      "priority": 10,
+      "request": {
+        "method": "GET",
+        "urlPathPattern": "/api/persons/phone-exists.*"
+      },
+      "response": {
+        "status": 200,
+        "jsonBody": false,
+        "headers": { "Content-Type": "application/json" }
+      }
+    },
+    {
+      "priority": 10,
+      "request": {
+        "method": "PUT",
+        "urlPathPattern": "/api/persons/by-profile/.*/email"
+      },
+      "response": { "status": 200 }
+    },
+    {
+      "priority": 10,
+      "request": {
+        "method": "PUT",
+        "urlPathPattern": "/api/persons/by-profile/.*/phone"
+      },
+      "response": { "status": 200 }
+    }
+  ]
+}

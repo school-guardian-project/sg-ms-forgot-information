@@ -1,0 +1,17 @@
+services:
+  ms-forgot-information.api:
+    container_name: ms-forgot-information
+    image: ms-forgot-information.api
+    build:
+      context: .
+      dockerfile: src/ms-forgot-information.Api/Dockerfile
+    ports:
+      - "8091:8080"
+    env_file:
+      - .env
+    networks:
+      - sg-services-network
+
+networks:
+  sg-services-network:
+    external: true

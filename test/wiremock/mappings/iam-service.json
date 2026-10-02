@@ -1,0 +1,42 @@
+{
+  "mappings": [
+    {
+      "priority": 1,
+      "request": {
+        "method": "GET",
+        "urlPath": "/api/profiles/by-email",
+        "queryParameters": {
+          "email": { "equalTo": "parent@example.com" }
+        }
+      },
+      "response": {
+        "status": 200,
+        "jsonBody": {
+          "profileId": "11111111-1111-1111-1111-111111111111",
+          "email": "parent@example.com"
+        },
+        "headers": { "Content-Type": "application/json" }
+      }
+    },
+    {
+      "priority": 10,
+      "request": {
+        "method": "POST",
+        "urlPathPattern": "/api/profiles/.*/validate-password"
+      },
+      "response": {
+        "status": 200,
+        "jsonBody": true,
+        "headers": { "Content-Type": "application/json" }
+      }
+    },
+    {
+      "priority": 10,
+      "request": {
+        "method": "PUT",
+        "urlPathPattern": "/api/profiles/.*/password"
+      },
+      "response": { "status": 200 }
+    }
+  ]
+}
