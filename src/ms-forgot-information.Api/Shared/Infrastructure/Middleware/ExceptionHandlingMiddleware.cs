@@ -26,18 +26,18 @@ public class ExceptionHandlingMiddleware(RequestDelegate next, ILogger<Exception
         {
             await WriteAsync(context, HttpStatusCode.TooManyRequests, ex.Message);
         }
-        catch (DuplicateContactException ex)
-        {
-            await WriteAsync(context, HttpStatusCode.Conflict, ex.Message);
-        }
-        catch (InvalidCredentialsException ex)
-        {
-            await WriteAsync(context, HttpStatusCode.Unauthorized, ex.Message);
-        }
         catch (UpstreamUpdateException ex)
         {
             logger.LogError(ex.Inner, "Upstream update failed");
             await WriteAsync(context, HttpStatusCode.BadGateway, "No se pudo completar la actualización. Intenta de nuevo.");
+        }
+        catch (NotificationDeliveryException)
+        {
+            await WriteAsync(context, HttpStatusCode.ServiceUnavailable, "No se pudo enviar el código. Intenta de nuevo más tarde.");
+        }
+        catch (EmailAlreadyInUseException ex)
+        {
+            await WriteAsync(context, HttpStatusCode.Conflict, ex.Message);
         }
         catch (VerificationException ex)
         {

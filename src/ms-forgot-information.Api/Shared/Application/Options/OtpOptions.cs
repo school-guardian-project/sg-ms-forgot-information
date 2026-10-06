@@ -3,8 +3,8 @@ namespace ms_forgot_information.Api.Shared.Application.Options;
 public sealed class OtpOptions
 {
     public const string SectionName = "Otp";
+    public const int ResetCodeLength = 6;
 
-    public int CodeLength { get; set; } = 6;
     public int ExpirationMinutes { get; set; } = 10;
     public byte MaxAttempts { get; set; } = 5;
     public int MaxRequestsPerWindow { get; set; } = 3;

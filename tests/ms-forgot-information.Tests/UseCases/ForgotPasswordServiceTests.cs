@@ -17,8 +17,8 @@ public class ForgotPasswordServiceTests
         var repo = new FakeVerificationRequestRepository();
         var identity = new FakeIdentityDirectoryClient();
         var verificationCodeService = new VerificationCodeService(
-            repo, new FakeEmailSender(), new FakeSmsSender(), new SecretHasher("pepper"),
-            Options.Create(new OtpOptions { MaxRequestsPerWindow = 3, RequestWindowMinutes = 10, MaxAttempts = 5, ExpirationMinutes = 10, ResetTokenExpirationMinutes = 5, CodeLength = 6 }),
+            repo, new FakeEmailSender(), new SecretHasher("pepper"),
+            Options.Create(new OtpOptions { MaxRequestsPerWindow = 3, RequestWindowMinutes = 10, MaxAttempts = 5, ExpirationMinutes = 10, ResetTokenExpirationMinutes = 5 }),
             NullLogger<VerificationCodeService>.Instance,
             TimeProvider.System);
 

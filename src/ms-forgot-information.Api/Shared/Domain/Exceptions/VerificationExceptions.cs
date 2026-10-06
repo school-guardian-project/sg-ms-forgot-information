@@ -12,10 +12,6 @@ public sealed class TooManyRequestsException() : VerificationException("Se han s
 
 public sealed class InvalidResetTokenException() : VerificationException("El token de restablecimiento es inválido o expiró.");
 
-public sealed class DuplicateContactException(string message) : VerificationException(message);
-
-public sealed class InvalidCredentialsException() : VerificationException("La contraseña actual no es correcta.");
-
 public sealed class WeakPasswordException() : VerificationException(
     "La contraseña debe tener mínimo 8 caracteres, con mayúscula, minúscula, número y carácter especial.");
 
@@ -23,8 +19,14 @@ public sealed class PasswordMismatchException() : VerificationException("Las con
 
 public sealed class InvalidContactFormatException(string message) : VerificationException(message);
 
+/// <summary>The requested new login email already belongs to another account.</summary>
+public sealed class EmailAlreadyInUseException() : VerificationException("Ese correo no está disponible.");
+
 public sealed class UpstreamUpdateException(string message, Exception inner)
     : VerificationException(message is { Length: > 0 } ? message : "No se pudo completar la actualización. Intenta de nuevo.")
 {
     public Exception Inner { get; } = inner;
 }
+
+/// <summary>Delivery of the recovery email failed. Never exposes provider details; the inner exception is for logs only.</summary>
+public sealed class NotificationDeliveryException(Exception inner) : Exception("Notification delivery failed.", inner);

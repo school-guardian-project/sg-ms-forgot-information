@@ -76,9 +76,6 @@ public class VerificationRequest
         };
     }
 
-    public bool CanBeChallenged(DateTime utcNow) =>
-        Status is VerificationStatus.Pending or VerificationStatus.Verified && utcNow < ExpiresAt;
-
     public bool IsExpired(DateTime utcNow) => utcNow >= ExpiresAt;
 
     public void MarkExpired() => Status = VerificationStatus.Expired;
@@ -98,7 +95,7 @@ public class VerificationRequest
     /// <summary>Marks the code as matched and issues a short-lived opaque token for the final step.</summary>
     public void MarkVerified(string resetTokenHash, DateTime utcNow)
     {
-        if (!CanBeChallenged(utcNow))
+        if (Status != VerificationStatus.Pending || IsExpired(utcNow))
         {
             throw new InvalidCodeException();
         }

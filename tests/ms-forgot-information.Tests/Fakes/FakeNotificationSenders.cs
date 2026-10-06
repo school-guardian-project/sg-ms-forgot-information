@@ -12,25 +12,3 @@ public class FakeEmailSender : IEmailSender
         return Task.CompletedTask;
     }
 }
-
-public class FakeSmsSender : ISmsSender
-{
-    public readonly List<(string To, string Message)> Sent = new();
-
-    public Task SendAsync(string toPhoneE164, string message, CancellationToken ct)
-    {
-        Sent.Add((toPhoneE164, message));
-        return Task.CompletedTask;
-    }
-}
-
-public class FakeDomainEventPublisher : IDomainEventPublisher
-{
-    public readonly List<(string EventType, string Topic, object Payload)> Published = new();
-
-    public Task PublishAsync(string eventType, string topic, object payload, CancellationToken ct)
-    {
-        Published.Add((eventType, topic, payload));
-        return Task.CompletedTask;
-    }
-}

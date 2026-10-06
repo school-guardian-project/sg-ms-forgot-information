@@ -16,13 +16,3 @@ public interface IResetPasswordUseCase
 {
     Task ExecuteAsync(ResetPasswordRequestDto dto, CancellationToken ct);
 }
-
-public interface IRequestPasswordChangeCodeUseCase
-{
-    Task ExecuteAsync(Guid profileId, string requestIp, CancellationToken ct);
-}
-
-public interface IChangePasswordUseCase
-{
-    Task ExecuteAsync(Guid profileId, ChangePasswordRequestDto dto, CancellationToken ct);
-}

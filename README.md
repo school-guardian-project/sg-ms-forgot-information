@@ -1,111 +1,90 @@
 # sg-ms-forgot-information
 
-Microservicio responsable de los flujos de **recuperación de contraseña**, **cambio de
-contraseña**, **cambio de correo** y **cambio de teléfono** de Guardian Escolar, todos
-protegidos por códigos de verificación (OTP) enviados por **correo** o **SMS**.
+Microservicio .NET 10 dedicado exclusivamente a **recuperar contraseñas por correo**. Envía
+un código numérico de seis dígitos por SMTP, verifica el código y solicita a `ms-iam` que
+guarde la contraseña nueva. No almacena contraseñas ni ofrece cambio autenticado de
+contraseña, correo o teléfono.
 
-Este servicio **no** almacena datos de usuario ni contraseñas: es dueño únicamente de las
-solicitudes de verificación (`ForgotInformation.VerificationRequest`). Los datos de cuenta
-siguen siendo propiedad de `iam-service` (contraseña) y `user-management-service`
-(correo/teléfono). Ver el diseño completo en
-[`schoo-guardian/sg-docs/09-microservices/services/12-forgot-information/`](../schoo-guardian/sg-docs/09-microservices/services/12-forgot-information/).
+## Flujo
 
-> **¿Quieres probarlo de punta a punta sin montar `iam-service`/`user-management-service` reales?**
-> Ver [TESTING.md](./TESTING.md) — entorno autocontenido con MailHog y WireMock, con cada
-> comando ya verificado contra el código real.
+1. `POST /api/v1/password/forgot`: busca el perfil por correo y, si existe, guarda el hash del
+   código y lo envía por correo. Siempre responde `202 Accepted` con el mismo mensaje, exista
+   o no el correo.
+2. `POST /api/v1/password/forgot/verify`: valida el código y devuelve un token opaco de
+   restablecimiento.
+3. `POST /api/v1/password/reset`: valida el token, actualiza la contraseña en `ms-iam` y
+   consume el código solo cuando la actualización termina correctamente.
 
----
+Los códigos se guardan con HMAC-SHA256, sal aleatoria y `Otp__HashPepper`; expiran, tienen
+límite de intentos y no se pueden volver a verificar una vez aceptados. Solicitar otro código
+deja vigente únicamente el más reciente. La API también limita solicitudes por IP y por perfil.
+Ni el código ni la contraseña se escriben en los logs.
 
-## Cómo funciona una actualización (resumen de seguridad)
+## Endpoints y cuerpos
 
-1. **Verificar, luego aplicar, luego consumir.** El código solo se marca como usado
-   (`Consumed`) *después* de que la actualización en el servicio dueño de los datos haya
-   tenido éxito. Si esa llamada falla, el código sigue siendo válido y el usuario puede
-   reintentar sin pedir uno nuevo.
-2. **Nunca se confía en el `profileId` del body.** Todos los endpoints autenticados toman el
-   perfil desde el claim `sub` del JWT — no es posible modificar la cuenta de otro usuario.
-3. **Sin enumeración de usuarios.** `POST /password/forgot` siempre responde igual, exista o
-   no el correo.
-4. **Códigos de un solo uso, con expiración y límite de intentos**, separados por propósito
-   (`PasswordReset`, `ChangePassword`, `ChangeEmail`, `ChangePhone` — un código nunca sirve
-   para un propósito distinto al que fue emitido).
-5. **Nada sensible en logs ni en eventos**: ni el código, ni la contraseña, ni el correo/teléfono
-   nuevo viajan en los eventos de Kafka (ver `events.md` en la carpeta de diseño).
+| Método | Ruta | Descripción |
+|---|---|---|
+| `POST` | `/api/v1/password/forgot` | Solicitar el código por correo |
+| `POST` | `/api/v1/password/forgot/verify` | Verificar correo y código; devuelve `resetToken` |
+| `POST` | `/api/v1/password/reset` | Establecer la contraseña con el token |
+| `GET` | `/health` | Estado del servicio |
 
----
-
-## Endpoints
-
-| Método | Ruta | Auth | Descripción |
-|--------|------|------|-------------|
-| POST | `/api/v1/password/forgot` | Pública | Solicita un código para recuperar contraseña (respuesta genérica siempre) |
-| POST | `/api/v1/password/forgot/verify` | Pública | Verifica el código y devuelve un `resetToken` de un solo uso |
-| POST | `/api/v1/password/reset` | Pública | Aplica la nueva contraseña usando el `resetToken` |
-| POST | `/api/v1/password/change/request-code` | JWT | Envía un código al correo actual (para quien olvidó su contraseña estando logueado) |
-| POST | `/api/v1/password/change` | JWT | Cambia la contraseña con la actual **o** con un código (nunca ambos, nunca ninguno) |
-| POST | `/api/v1/email/change/request` | JWT | Envía un código al **nuevo** correo |
-| POST | `/api/v1/email/change/confirm` | JWT | Verifica el código y aplica el cambio de correo |
-| POST | `/api/v1/phone/change/request` | JWT | Envía un código por SMS al **nuevo** teléfono |
-| POST | `/api/v1/phone/change/confirm` | JWT | Verifica el código y aplica el cambio de teléfono |
-| GET | `/health` | Pública | Health check |
-
----
-
-## Variables de entorno
-
-Copia `.env.example` a `.env` y completa los valores. Resumen:
-
-| Variable | Propósito |
-|----------|-----------|
-| `ConnectionStrings__DefaultConnection` | SQL Server compartido (ADR-002) |
-| `Jwt__Issuer` / `Jwt__Audience` / `Jwt__PublicKey` | Validación JWT RS256 (ADR-008) — solo la clave **pública** |
-| `Otp__*` | Longitud, expiración, intentos máximos y límite de solicitudes del código |
-| `Otp__HashPepper` | Secreto del servidor mezclado en el hash del código — generar con `openssl rand -base64 32` |
-| `IdentityDirectory__IamServiceBaseUrl` / `UserManagementServiceBaseUrl` | URLs internas de los servicios dueños de los datos |
-| `Smtp__*` | Credenciales SMTP para el envío real de códigos por correo |
-| `Sms__*` | Credenciales de Twilio para el envío real de códigos por SMS |
-
----
-
-## Cómo ejecutarlo localmente
-
-```bash
-# Con Docker (se une a la red compartida de schoo-guardian)
-docker compose up -d --build
-
-# Verificar
-curl http://localhost:8091/health
+```json
+{ "email": "persona@ejemplo.com" }
 ```
 
-```bash
-# Sin Docker (requiere .NET 10 SDK instalado)
-cd src/ms-forgot-information.Api
+```json
+{ "email": "persona@ejemplo.com", "code": "123456" }
+```
+
+```json
+{
+  "email": "persona@ejemplo.com",
+  "resetToken": "token-opaco",
+  "newPassword": "NuevaClave1!",
+  "confirmPassword": "NuevaClave1!"
+}
+```
+
+## Configurar SMTP
+
+1. Para Gmail, activa la verificación en dos pasos y crea una **contraseña de aplicación**.
+   No uses la contraseña normal de la cuenta.
+2. Copia `.env.example` como `.env`. Configura SMTP, la conexión a la base de datos compartida
+   con IAM, `OTP_HASH_PEPPER`, el origen CORS y la misma `INTERNAL_API_KEY` que usa
+   [`ms-iam`](../../ms-iam).
+3. `.env` está ignorado por Git. No compartas ni confirmes credenciales reales.
+
+La aplicación lee la configuración de SMTP de variables jerárquicas de .NET. Docker Compose
+traduce las variables `SMTP_*` del `.env` a la configuración requerida. `SMTP_ENABLE_SSL=true`
+con puerto 587 negocia STARTTLS. Ajusta el puerto y TLS si tu proveedor SMTP lo requiere.
+
+Docker Compose carga `.env` automáticamente y conecta con `http://ms-iam:8080` en la red
+compartida `sg-services-network`. Perfil y contraseña pertenecen al IAM real; este servicio
+solo persiste desafíos OTP. `dotnet run` **no** carga archivos `.env` por sí solo: configura
+las variables en el entorno de ejecución o usa un gestor de secretos.
+
+## Ejecutar
+
+Con el IAM real, SQL Server y la red compartida `sg-services-network` en ejecución:
+
+```powershell
+docker compose up -d --build
+Invoke-RestMethod http://localhost:8091/health
+```
+
+Para ejecutar desde el código, usa .NET 10 SDK y configura las variables de entorno requeridas:
+
+```powershell
+Set-Location .\src\ms-forgot-information.Api
 dotnet run
 ```
 
-## Tests
+## Pruebas
 
-```bash
-cd tests/ms-forgot-information.Tests
-dotnet test
+```powershell
+dotnet test .\tests\ms-forgot-information.Tests\ms-forgot-information.Tests.csproj
 ```
 
-Cubren: emisión y verificación de códigos, expiración, bloqueo por intentos, rate limiting,
-no reutilización de un código consumido, anti-enumeración en `password/forgot`, y la regla de
-"exactamente uno de contraseña actual o código" en el cambio de contraseña autenticado.
-
----
-
-## Integración pendiente (fuera del alcance de este servicio)
-
-- `iam-service` y `user-management-service` deben exponer los endpoints REST que
-  `IdentityDirectoryHttpClient` consume hoy (`/api/profiles/by-email`,
-  `/api/profiles/{id}/validate-password`, `/api/profiles/{id}/password`,
-  `/api/persons/by-profile/{id}/contact`, `/api/persons/by-profile/{id}/email`,
-  `/api/persons/by-profile/{id}/phone`, `/api/persons/email-exists`, `/api/persons/phone-exists`).
-  Según DEC-002 esto debería migrar a gRPC una vez existan los `.proto` — solo esta clase
-  cambiaría.
-- Integración de los flujos ya existentes en el frontend web (`forgot-password`,
-  `change-password`, `change-email`, `change-contact`) y la app móvil (`ForgotPassword`,
-  `UpdatePassword`, `UpdateEmail`, `UpdatePhone`), reemplazando la navegación simulada por
-  llamadas reales a estos endpoints.
+Para volver a ejecutar las pruebas automatizadas y comprobar de forma segura la integración
+contra los servicios reales, consulta [TESTING.md](./TESTING.md).

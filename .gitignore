@@ -3,5 +3,3 @@ obj/
 *.user
 .vs/
 .env
-keys/
-tools/dev-token/keys/

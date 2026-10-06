@@ -11,14 +11,11 @@ namespace ms_forgot_information.Api.Shared.Application.Services;
 public sealed record VerificationTicket(Guid RequestId, Guid ProfileId, Purpose Purpose, string Target, string ResetToken);
 
 /// <summary>
-/// The single place that implements the OTP state machine (issue -> verify -> consume) shared
-/// by password recovery, password change, email change, and phone change. Delivery channel
-/// (email vs SMS) is chosen automatically from the shape of <c>target</c>.
+/// Implements the password-recovery code lifecycle (issue -> verify -> consume).
 /// </summary>
 public class VerificationCodeService(
     IVerificationRequestRepository repository,
     IEmailSender emailSender,
-    ISmsSender smsSender,
     ISecretHasher secretHasher,
     IOptions<OtpOptions> options,
     ILogger<VerificationCodeService> logger,
@@ -37,7 +34,7 @@ public class VerificationCodeService(
             throw new TooManyRequestsException();
         }
 
-        var code = OtpCodeGenerator.GenerateNumericCode(_options.CodeLength);
+        var code = OtpCodeGenerator.GenerateNumericCode(OtpOptions.ResetCodeLength);
         var codeHash = secretHasher.Hash(code);
 
         var request = VerificationRequest.Issue(
@@ -52,7 +49,20 @@ public class VerificationCodeService(
 
         await repository.AddAsync(request, ct);
 
-        await DeliverAsync(target, purpose, code, ct);
+        try
+        {
+            await DeliverAsync(target, code, purpose, ct);
+        }
+        catch (Exception ex) when (ex is not OperationCanceledException)
+        {
+            // The code never reached the user: burn it so it can't be verified later. The row still
+            // counts toward the rate limit, which also protects the mail provider from being hammered.
+            request.MarkConsumed(now);
+            await repository.UpdateAsync(request, ct);
+
+            logger.LogError(ex, "Verification code delivery failed for profile {ProfileId}, purpose {Purpose}", profileId, purpose);
+            throw ex as NotificationDeliveryException ?? new NotificationDeliveryException(ex);
+        }
 
         logger.LogInformation("Verification code issued for profile {ProfileId}, purpose {Purpose}", profileId, purpose);
     }
@@ -64,14 +74,14 @@ public class VerificationCodeService(
         var request = await repository.GetActiveAsync(profileId, purpose, ct)
             ?? throw new InvalidCodeException();
 
-        if (request.Status == VerificationStatus.Consumed)
-        {
-            throw new InvalidCodeException();
-        }
-
         if (request.Status == VerificationStatus.Locked)
         {
             throw new TooManyAttemptsException();
+        }
+
+        if (request.Status != VerificationStatus.Pending)
+        {
+            throw new InvalidCodeException();
         }
 
         if (request.IsExpired(now))
@@ -134,32 +144,28 @@ public class VerificationCodeService(
         await repository.UpdateAsync(request, ct);
     }
 
-    private async Task DeliverAsync(string target, Purpose purpose, string code, CancellationToken ct)
+    private async Task DeliverAsync(string target, string code, Purpose purpose, CancellationToken ct)
     {
-        var message = BuildMessage(purpose, code);
-
-        if (target.Contains('@'))
+        var (subject, intro) = purpose switch
         {
-            await emailSender.SendAsync(target, "Código de verificación — Guardian Escolar", message, ct);
-        }
-        else
-        {
-            await smsSender.SendAsync(target, message, ct);
-        }
-    }
-
-    private string BuildMessage(Purpose purpose, string code)
-    {
-        var action = purpose switch
-        {
-            Purpose.PasswordReset => "recuperar tu contraseña",
-            Purpose.ChangePassword => "cambiar tu contraseña",
-            Purpose.ChangeEmail => "confirmar tu nuevo correo",
-            Purpose.ChangePhone => "confirmar tu nuevo teléfono",
-            _ => "verificar tu identidad"
+            Purpose.EmailChange => (
+                "Código para cambiar tu correo — Guardian Escolar",
+                "Tu código para confirmar el cambio de correo de tu cuenta de Guardian Escolar es"),
+            Purpose.EmailChangeConfirm => (
+                "Verifica tu nuevo correo — Guardian Escolar",
+                "Tu código para verificar este correo como el nuevo correo de tu cuenta de Guardian Escolar es"),
+            _ => (
+                "Código para recuperar tu contraseña — Guardian Escolar",
+                "Tu código para recuperar la contraseña de Guardian Escolar es")
         };
 
-        return $"Tu código para {action} en Guardian Escolar es: {code}. " +
-               $"Expira en {_options.ExpirationMinutes} minutos. Si no solicitaste esto, ignora este mensaje.";
+        await emailSender.SendAsync(target, subject, BuildMessage(intro, code), ct);
+    }
+
+    private string BuildMessage(string intro, string code)
+    {
+        return $"{intro}: {code}.\n\n" +
+               $"Vence en {_options.ExpirationMinutes} minutos y solo se puede usar una vez.\n" +
+               "Si no solicitaste este cambio, ignora este correo.";
     }
 }

@@ -16,13 +16,12 @@ public class VerificationCodeServiceTests
     {
         var repo = new FakeVerificationRequestRepository();
         var email = new FakeEmailSender();
-        var sms = new FakeSmsSender();
         var hasher = new SecretHasher("test-pepper");
         var clock = new ManualTimeProvider();
 
         var service = new VerificationCodeService(
-            repo, email, sms, hasher,
-            Options.Create(options ?? new OtpOptions { CodeLength = 6, ExpirationMinutes = 10, MaxAttempts = 3, MaxRequestsPerWindow = 3, RequestWindowMinutes = 10, ResetTokenExpirationMinutes = 5 }),
+            repo, email, hasher,
+            Options.Create(options ?? new OtpOptions { ExpirationMinutes = 10, MaxAttempts = 3, MaxRequestsPerWindow = 3, RequestWindowMinutes = 10, ResetTokenExpirationMinutes = 5 }),
             NullLogger<VerificationCodeService>.Instance,
             clock);
 
@@ -70,7 +69,7 @@ public class VerificationCodeServiceTests
     [Fact]
     public async Task VerifyAsync_locks_after_reaching_MaxAttempts()
     {
-        var (service, _, email, _) = Build(new OtpOptions { CodeLength = 6, ExpirationMinutes = 10, MaxAttempts = 2, MaxRequestsPerWindow = 5, RequestWindowMinutes = 10, ResetTokenExpirationMinutes = 5 });
+        var (service, _, email, _) = Build(new OtpOptions { ExpirationMinutes = 10, MaxAttempts = 2, MaxRequestsPerWindow = 5, RequestWindowMinutes = 10, ResetTokenExpirationMinutes = 5 });
         var profileId = Guid.NewGuid();
         await service.IssueAsync(profileId, Purpose.PasswordReset, "user@example.com", "127.0.0.1", CancellationToken.None);
 
@@ -84,7 +83,7 @@ public class VerificationCodeServiceTests
     [Fact]
     public async Task VerifyAsync_throws_CodeExpiredException_once_expiration_elapses()
     {
-        var (service, _, email, clock) = Build(new OtpOptions { CodeLength = 6, ExpirationMinutes = 10, MaxAttempts = 3, MaxRequestsPerWindow = 5, RequestWindowMinutes = 10, ResetTokenExpirationMinutes = 5 });
+        var (service, _, email, clock) = Build(new OtpOptions { ExpirationMinutes = 10, MaxAttempts = 3, MaxRequestsPerWindow = 5, RequestWindowMinutes = 10, ResetTokenExpirationMinutes = 5 });
         var profileId = Guid.NewGuid();
         await service.IssueAsync(profileId, Purpose.PasswordReset, "user@example.com", "127.0.0.1", CancellationToken.None);
         var code = ExtractCode(email.Sent[0].Body);
@@ -97,7 +96,7 @@ public class VerificationCodeServiceTests
     [Fact]
     public async Task IssueAsync_throws_TooManyRequestsException_beyond_the_window_limit()
     {
-        var (service, _, _, _) = Build(new OtpOptions { CodeLength = 6, ExpirationMinutes = 10, MaxAttempts = 3, MaxRequestsPerWindow = 2, RequestWindowMinutes = 10, ResetTokenExpirationMinutes = 5 });
+        var (service, _, _, _) = Build(new OtpOptions { ExpirationMinutes = 10, MaxAttempts = 3, MaxRequestsPerWindow = 2, RequestWindowMinutes = 10, ResetTokenExpirationMinutes = 5 });
         var profileId = Guid.NewGuid();
 
         await service.IssueAsync(profileId, Purpose.PasswordReset, "user@example.com", "127.0.0.1", CancellationToken.None);

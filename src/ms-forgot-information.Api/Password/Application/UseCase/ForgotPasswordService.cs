@@ -5,6 +5,7 @@ using ms_forgot_information.Api.Shared.Domain.Exceptions;
 using ms_forgot_information.Api.Shared.Domain.Model;
 using ms_forgot_information.Api.Shared.Domain.Port.Out;
 using ms_forgot_information.Api.Shared.Application.Services;
+using ms_forgot_information.Api.Shared.Application.Validation;
 
 namespace ms_forgot_information.Api.Password.Application.UseCase;
 
@@ -20,13 +21,16 @@ public class ForgotPasswordService(
 {
     public async Task ExecuteAsync(ForgotPasswordRequestDto dto, string requestIp, CancellationToken ct)
     {
-        var profile = await identityDirectory.FindProfileByEmailAsync(dto.Email, ct);
+        var email = InputValidators.NormalizeEmail(dto.Email);
+        var profile = await identityDirectory.FindProfileByEmailAsync(email, ct);
 
         if (profile is null)
         {
-            logger.LogInformation("Password reset requested for an unknown email");
+            logger.LogInformation("Password reset requested for an unknown email {Email}: IAM returned no active profile, no code sent", EmailLogMask.Mask(email));
             return;
         }
+
+        logger.LogInformation("IAM resolved {Requested} to recipient {Recipient}", EmailLogMask.Mask(email), EmailLogMask.Mask(profile.Email));
 
         try
         {
@@ -37,6 +41,11 @@ public class ForgotPasswordService(
             // Swallowed on purpose: a 429 here would reveal the email exists. The per-profile
             // rate limit already did its job by not sending another code.
             logger.LogInformation("Password reset rate-limited for profile {ProfileId}", profile.ProfileId);
+        }
+        catch (NotificationDeliveryException)
+        {
+            // Swallowed on purpose: a 5xx here would reveal the email exists. Already logged by VerificationCodeService.
+            logger.LogWarning("Password reset code could not be delivered for profile {ProfileId}", profile.ProfileId);
         }
     }
 }
