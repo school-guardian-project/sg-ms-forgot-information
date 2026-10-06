@@ -1,3 +1,4 @@
+using ms_forgot_information.Api.Shared.Application.Email;
 using ms_forgot_information.Api.Shared.Application.Options;
 using ms_forgot_information.Api.Shared.Application.Otp;
 using ms_forgot_information.Api.Shared.Domain.Exceptions;
@@ -19,8 +20,10 @@ public class VerificationCodeService(
     ISecretHasher secretHasher,
     IOptions<OtpOptions> options,
     ILogger<VerificationCodeService> logger,
-    TimeProvider timeProvider)
+    TimeProvider timeProvider,
+    IOptions<EmailBrandingOptions>? branding = null)
 {
+    private readonly EmailBrandingOptions _branding = branding?.Value ?? new EmailBrandingOptions();
     private readonly OtpOptions _options = options.Value;
 
     public async Task IssueAsync(Guid profileId, Purpose purpose, string target, string requestIp, CancellationToken ct)
@@ -223,29 +226,7 @@ public class VerificationCodeService(
 
     private async Task DeliverAsync(string target, string code, Purpose purpose, CancellationToken ct)
     {
-        var (subject, intro) = purpose switch
-        {
-            Purpose.EmailChange => (
-                "Código para cambiar tu correo — Guardian Escolar",
-                "Tu código para confirmar el cambio de correo de tu cuenta de Guardian Escolar es"),
-            Purpose.EmailChangeConfirm => (
-                "Verifica tu nuevo correo — Guardian Escolar",
-                "Tu código para verificar este correo como el nuevo correo de tu cuenta de Guardian Escolar es"),
-            Purpose.PhoneChange => (
-                "Código para cambiar tu teléfono — Guardian Escolar",
-                "Tu código para confirmar el cambio de teléfono de tu cuenta de Guardian Escolar es"),
-            _ => (
-                "Código para recuperar tu contraseña — Guardian Escolar",
-                "Tu código para recuperar la contraseña de Guardian Escolar es")
-        };
-
-        await emailSender.SendAsync(target, subject, BuildMessage(intro, code), ct);
-    }
-
-    private string BuildMessage(string intro, string code)
-    {
-        return $"{intro}: {code}.\n\n" +
-               $"Vence en {_options.ExpirationMinutes} minutos y solo se puede usar una vez.\n" +
-               "Si no solicitaste este cambio, ignora este correo.";
+        var email = TransactionalEmails.VerificationCode(_branding, purpose, code, _options.ExpirationMinutes);
+        await emailSender.SendAsync(target, email.Subject, email.Text, email.Html, ct);
     }
 }

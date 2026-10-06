@@ -1,4 +1,4 @@
-using Microsoft.Extensions.Logging.Abstractions;
+﻿using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Extensions.Options;
 using ms_forgot_information.Api.Shared.Application.Options;
 using ms_forgot_information.Api.Shared.Application.Otp;
@@ -124,8 +124,6 @@ public class VerificationCodeServiceTests
 
     private static string ExtractCode(string body)
     {
-        var start = body.IndexOf("es: ", StringComparison.Ordinal) + 4;
-        var end = body.IndexOf('.', start);
-        return body[start..end];
+        return System.Text.RegularExpressions.Regex.Match(body, @"\d{6}").Value;
     }
 }

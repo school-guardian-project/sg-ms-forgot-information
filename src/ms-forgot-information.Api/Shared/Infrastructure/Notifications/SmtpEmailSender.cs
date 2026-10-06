@@ -18,7 +18,13 @@ public class SmtpEmailSender(IOptions<SmtpOptions> options, ILogger<SmtpEmailSen
 {
     private readonly SmtpOptions _options = options.Value;
 
-    public async Task SendAsync(string toEmail, string subject, string body, CancellationToken ct)
+    public Task SendAsync(string toEmail, string subject, string body, CancellationToken ct)
+        => SendCoreAsync(toEmail, subject, body, null, ct);
+
+    public Task SendAsync(string toEmail, string subject, string textBody, string htmlBody, CancellationToken ct)
+        => SendCoreAsync(toEmail, subject, textBody, htmlBody, ct);
+
+    private async Task SendCoreAsync(string toEmail, string subject, string body, string? htmlBody, CancellationToken ct)
     {
         try
         {
@@ -52,6 +58,10 @@ public class SmtpEmailSender(IOptions<SmtpOptions> options, ILogger<SmtpEmailSen
                 SubjectEncoding = Encoding.UTF8,
                 BodyEncoding = Encoding.UTF8
             };
+            if (!string.IsNullOrEmpty(htmlBody))
+            {
+                message.AlternateViews.Add(AlternateView.CreateAlternateViewFromString(htmlBody, Encoding.UTF8, "text/html"));
+            }
             message.To.Add(toEmail);
             logger.LogInformation("SMTP sending: from {From} to {To}", EmailLogMask.Mask(_options.FromAddress), EmailLogMask.Mask(toEmail));
 

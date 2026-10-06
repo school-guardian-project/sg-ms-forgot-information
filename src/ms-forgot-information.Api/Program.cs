@@ -1,4 +1,4 @@
-﻿using System.Threading.RateLimiting;
+using System.Threading.RateLimiting;
 using Microsoft.AspNetCore.RateLimiting;
 using Microsoft.EntityFrameworkCore;
 using Scalar.AspNetCore;
@@ -30,6 +30,7 @@ if (corsOrigins.Length > 0)
 
 builder.Services.Configure<OtpOptions>(builder.Configuration.GetSection(OtpOptions.SectionName));
 builder.Services.Configure<SmtpOptions>(builder.Configuration.GetSection(SmtpOptions.SectionName));
+builder.Services.Configure<ms_forgot_information.Api.Shared.Application.Email.EmailBrandingOptions>(builder.Configuration.GetSection(ms_forgot_information.Api.Shared.Application.Email.EmailBrandingOptions.SectionName));
 builder.Services.Configure<TwilioOptions>(builder.Configuration.GetSection(TwilioOptions.SectionName));
 builder.Services.Configure<IdentityDirectoryOptions>(builder.Configuration.GetSection(IdentityDirectoryOptions.SectionName));
 

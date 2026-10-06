@@ -1,4 +1,4 @@
-﻿services:
+services:
   ms-forgot-information.api:
     container_name: ms-forgot-information
     image: ms-forgot-information.api
@@ -20,6 +20,10 @@
       Smtp__Password: "${SMTP_PASSWORD:?Set SMTP_PASSWORD in .env}"
       Smtp__FromAddress: "${SMTP_FROM:?Set SMTP_FROM in .env}"
       Smtp__FromName: "Guardian Escolar"
+      Branding__LogoUrl: "${EMAIL_LOGO_URL:-}"
+      Branding__HeroImageUrl: "${EMAIL_HERO_IMAGE_URL:-}"
+      Branding__TermsUrl: "${EMAIL_TERMS_URL:-}"
+      Branding__PrivacyUrl: "${EMAIL_PRIVACY_URL:-}"
       Twilio__AccountSid: "${TWILIO_ACCOUNT_SID:-}"
       Twilio__ApiKey: "${TWILIO_API_KEY:-}"
       Twilio__ApiSecret: "${TWILIO_API_SECRET:-}"
