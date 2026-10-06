@@ -67,6 +67,83 @@ public class VerificationCodeService(
         logger.LogInformation("Verification code issued for profile {ProfileId}, purpose {Purpose}", profileId, purpose);
     }
 
+    /// <summary>
+    /// Opens a challenge whose OTP is owned by an external provider (Twilio Verify). Only the ledger row
+    /// (target, expiry, attempts, rate limit) lives here; the placeholder hash can never match a user input.
+    /// </summary>
+    public async Task<VerificationRequest> OpenExternalChallengeAsync(Guid profileId, Purpose purpose, string target, string requestIp, CancellationToken ct)
+    {
+        var now = timeProvider.GetUtcNow().UtcDateTime;
+        var recentCount = await repository.CountRecentAsync(profileId, purpose, now.AddMinutes(-_options.RequestWindowMinutes), ct);
+        if (recentCount >= _options.MaxRequestsPerWindow)
+        {
+            throw new TooManyRequestsException();
+        }
+
+        var request = VerificationRequest.Issue(
+            profileId, purpose, target,
+            secretHasher.Hash(OtpCodeGenerator.GenerateOpaqueToken()),
+            TimeSpan.FromMinutes(_options.ExpirationMinutes),
+            _options.MaxAttempts, requestIp, now);
+
+        await repository.AddAsync(request, ct);
+        return request;
+    }
+
+    /// <summary>Burns a challenge whose provider call failed, so the row cannot be used later (it still counts for rate limiting).</summary>
+    public async Task AbandonAsync(VerificationRequest request, CancellationToken ct)
+    {
+        request.MarkConsumed(timeProvider.GetUtcNow().UtcDateTime);
+        await repository.UpdateAsync(request, ct);
+    }
+
+    /// <summary>Returns the live external challenge or throws; the caller then asks the provider to check the code.</summary>
+    public async Task<VerificationRequest> GetPendingExternalChallengeAsync(Guid profileId, Purpose purpose, CancellationToken ct)
+    {
+        var now = timeProvider.GetUtcNow().UtcDateTime;
+        var request = await repository.GetActiveAsync(profileId, purpose, ct)
+            ?? throw new InvalidCodeException();
+
+        if (request.Status == VerificationStatus.Locked)
+        {
+            throw new TooManyAttemptsException();
+        }
+
+        if (request.Status != VerificationStatus.Pending)
+        {
+            throw new InvalidCodeException();
+        }
+
+        if (request.IsExpired(now))
+        {
+            request.MarkExpired();
+            await repository.UpdateAsync(request, ct);
+            throw new CodeExpiredException();
+        }
+
+        return request;
+    }
+
+    /// <summary>The provider approved the code: marks the challenge verified and mints the opaque token for the next step.</summary>
+    public async Task<VerificationTicket> ApproveExternalAsync(VerificationRequest request, CancellationToken ct)
+    {
+        var resetToken = OtpCodeGenerator.GenerateOpaqueToken();
+        request.MarkVerified(secretHasher.Hash(resetToken), timeProvider.GetUtcNow().UtcDateTime);
+        await repository.UpdateAsync(request, ct);
+        return new VerificationTicket(request.Id, request.ProfileId, request.Purpose, request.Target, resetToken);
+    }
+
+    /// <summary>Counts a rejected code locally so a challenge cannot be brute-forced regardless of the provider limits.</summary>
+    public async Task RegisterExternalFailureAsync(VerificationRequest request, CancellationToken ct)
+    {
+        request.RegisterFailedAttempt();
+        await repository.UpdateAsync(request, ct);
+        if (request.Status == VerificationStatus.Locked)
+        {
+            throw new TooManyAttemptsException();
+        }
+    }
+
     /// <summary>Compares the submitted code and, on success, mints a short-lived opaque token for the final step.</summary>
     public async Task<VerificationTicket> VerifyAsync(Guid profileId, Purpose purpose, string code, CancellationToken ct)
     {
@@ -154,6 +231,9 @@ public class VerificationCodeService(
             Purpose.EmailChangeConfirm => (
                 "Verifica tu nuevo correo — Guardian Escolar",
                 "Tu código para verificar este correo como el nuevo correo de tu cuenta de Guardian Escolar es"),
+            Purpose.PhoneChange => (
+                "Código para cambiar tu teléfono — Guardian Escolar",
+                "Tu código para confirmar el cambio de teléfono de tu cuenta de Guardian Escolar es"),
             _ => (
                 "Código para recuperar tu contraseña — Guardian Escolar",
                 "Tu código para recuperar la contraseña de Guardian Escolar es")

@@ -1,4 +1,4 @@
-services:
+﻿services:
   ms-forgot-information.api:
     container_name: ms-forgot-information
     image: ms-forgot-information.api
@@ -20,6 +20,10 @@ services:
       Smtp__Password: "${SMTP_PASSWORD:?Set SMTP_PASSWORD in .env}"
       Smtp__FromAddress: "${SMTP_FROM:?Set SMTP_FROM in .env}"
       Smtp__FromName: "Guardian Escolar"
+      Twilio__AccountSid: "${TWILIO_ACCOUNT_SID:-}"
+      Twilio__ApiKey: "${TWILIO_API_KEY:-}"
+      Twilio__ApiSecret: "${TWILIO_API_SECRET:-}"
+      Twilio__VerifyServiceSid: "${TWILIO_VERIFY_SERVICE_SID:-}"
       Cors__AllowedOrigins__0: "${CORS_ALLOWED_ORIGIN:-http://localhost:4200}"
     env_file:
       - .env

@@ -29,6 +29,25 @@ public class IdentityDirectoryHttpClient(
         return await response.Content.ReadFromJsonAsync<ProfileLookup>(ct);
     }
 
+    private sealed record PhoneMatchResponse(bool Matches);
+
+    public async Task<bool> PhoneMatchesAsync(Guid profileId, string phoneE164, CancellationToken ct)
+    {
+        var client = httpClientFactory.CreateClient(IamClientName);
+        var response = await client.PostAsJsonAsync(
+            $"/api/profiles/{profileId}/phone/matches", new { phone = phoneE164 }, ct);
+
+        if (response.StatusCode == HttpStatusCode.NotFound || response.StatusCode == HttpStatusCode.BadRequest)
+        {
+            return false;
+        }
+
+        LogAndEnsureSuccess(response, "match phone", profileId);
+        response.EnsureSuccessStatusCode();
+        var body = await response.Content.ReadFromJsonAsync<PhoneMatchResponse>(new System.Text.Json.JsonSerializerOptions(System.Text.Json.JsonSerializerDefaults.Web), ct);
+        return body?.Matches == true;
+    }
+
     public async Task UpdatePasswordAsync(Guid profileId, string newPassword, CancellationToken ct)
     {
         var client = httpClientFactory.CreateClient(IamClientName);
@@ -51,6 +70,16 @@ public class IdentityDirectoryHttpClient(
         }
 
         LogAndEnsureSuccess(response, "update email", profileId);
+        response.EnsureSuccessStatusCode();
+    }
+
+    public async Task UpdatePhoneAsync(Guid profileId, string newPhoneE164, CancellationToken ct)
+    {
+        var client = httpClientFactory.CreateClient(IamClientName);
+        var response = await client.PutAsJsonAsync(
+            $"/api/profiles/{profileId}/phone", new { phone = newPhoneE164 }, ct);
+
+        LogAndEnsureSuccess(response, "update phone", profileId);
         response.EnsureSuccessStatusCode();
     }
 

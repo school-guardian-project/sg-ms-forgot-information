@@ -23,3 +23,19 @@ public sealed class SmtpOptions
     public string FromName { get; set; } = string.Empty;
     public int TimeoutSeconds { get; set; } = 15;
 }
+
+public sealed class TwilioOptions
+{
+    public const string SectionName = "Twilio";
+
+    public string AccountSid { get; set; } = string.Empty;
+    public string ApiKey { get; set; } = string.Empty;
+    public string ApiSecret { get; set; } = string.Empty;
+    public string VerifyServiceSid { get; set; } = string.Empty;
+
+    public bool IsConfigured =>
+        !string.IsNullOrWhiteSpace(AccountSid)
+        && !string.IsNullOrWhiteSpace(ApiKey)
+        && !string.IsNullOrWhiteSpace(ApiSecret)
+        && !string.IsNullOrWhiteSpace(VerifyServiceSid);
+}

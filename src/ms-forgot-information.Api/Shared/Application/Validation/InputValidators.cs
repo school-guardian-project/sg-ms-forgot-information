@@ -1,4 +1,4 @@
-using System.ComponentModel.DataAnnotations;
+﻿using System.ComponentModel.DataAnnotations;
 using System.Text.RegularExpressions;
 using ms_forgot_information.Api.Shared.Domain.Exceptions;
 
@@ -29,6 +29,21 @@ public static partial class InputValidators
 
         return normalized.ToLowerInvariant();
     }
+
+    /// <summary>Requires E.164 (+, country code, 8-15 digits). No country is ever assumed.</summary>
+    public static string NormalizePhone(string phone)
+    {
+        var normalized = phone?.Trim().Replace(" ", string.Empty).Replace("-", string.Empty);
+        if (string.IsNullOrWhiteSpace(normalized) || !E164Pattern().IsMatch(normalized))
+        {
+            throw new InvalidContactFormatException("El teléfono debe estar en formato internacional, por ejemplo +573001234567.");
+        }
+
+        return normalized;
+    }
+
+    [GeneratedRegex(@"^\+[1-9]\d{7,14}$")]
+    private static partial Regex E164Pattern();
 
     // Mirrors the policy already enforced client-side in the Angular reset-password form.
     [GeneratedRegex(@"^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&.\-_])[A-Za-z\d@$!%*?&.\-_]{8,}$")]

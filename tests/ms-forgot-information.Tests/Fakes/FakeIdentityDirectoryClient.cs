@@ -15,6 +15,20 @@ public class FakeIdentityDirectoryClient : IIdentityDirectoryClient
             : null);
     }
 
+    public readonly Dictionary<Guid, string> StoredPhones = new();
+
+    public Task<bool> PhoneMatchesAsync(Guid profileId, string phoneE164, CancellationToken ct) =>
+        Task.FromResult(StoredPhones.TryGetValue(profileId, out var stored) && stored == phoneE164);
+
+    public (Guid ProfileId, string Phone)? LastPhoneUpdate;
+
+    public Task UpdatePhoneAsync(Guid profileId, string newPhoneE164, CancellationToken ct)
+    {
+        if (ThrowOnNextUpdate) throw new InvalidOperationException("simulated upstream failure");
+        LastPhoneUpdate = (profileId, newPhoneE164);
+        return Task.CompletedTask;
+    }
+
     public (Guid ProfileId, string Email)? LastEmailUpdate;
 
     public Task UpdateEmailAsync(Guid profileId, string newEmail, CancellationToken ct)

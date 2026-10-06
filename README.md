@@ -88,3 +88,41 @@ dotnet test .\tests\ms-forgot-information.Tests\ms-forgot-information.Tests.cspr
 
 Para volver a ejecutar las pruebas automatizadas y comprobar de forma segura la integración
 contra los servicios reales, consulta [TESTING.md](./TESTING.md).
+
+
+## Cambio de teléfono con Twilio Verify
+
+Tanto el teléfono actual como el nuevo se verifican con un SMS real enviado por **Twilio Verify**. Twilio genera, envía y valida el código: este servicio nunca lo genera ni lo guarda.
+
+### Flujo (`/api/v1/phone/change/*`)
+
+1. `request {email, currentPhone}`: si el correo existe y `currentPhone` (E.164) coincide con el teléfono guardado (IAM `POST /api/profiles/{id}/phone/matches`), Twilio envía un SMS a ese número. Responde 202 siempre (no revela si existe/coincide); formato inválido -> 400.
+2. `verify {email, currentPhone, code}`: Twilio valida el código del teléfono actual y devuelve un `resetToken` de un solo uso.
+3. `verification/request {email, resetToken, newPhone}`: valida que `newPhone` sea E.164 (`+573001234567`), y pide a Twilio enviar el SMS **exactamente a ese número**.
+4. `verification/check {email, newPhone, code}`: consulta a Twilio. Solo si responde `approved` se actualiza el teléfono en IAM (`PUT /api/profiles/{id}/phone`). Cualquier otro resultado se rechaza (400) y no cambia nada.
+
+Errores: 400 número/código inválido o vencido, 429 demasiados intentos/solicitudes, 503 Twilio no configurado o no disponible.
+
+### Configurar Twilio
+
+1. En la consola de Twilio crea un **Verify Service** (Verify > Services) y copia su SID (`VA...`).
+2. Crea una **API Key** estándar (Account > API keys & tokens) y copia el SID (`SK...`) y el secret (solo se muestra una vez).
+3. Define en `.env` (nunca en el repositorio):
+
+```
+TWILIO_ACCOUNT_SID=AC...
+TWILIO_API_KEY=SK...
+TWILIO_API_SECRET=...
+TWILIO_VERIFY_SERVICE_SID=VA...
+```
+
+4. Cuenta *trial*: Twilio solo envía SMS a números verificados (Console > Phone Numbers > Verified Caller IDs) y antepone un texto de prueba. Habilita además el país destino en Messaging > Geo permissions.
+5. Reconstruye: `docker compose up -d --build`.
+
+Sin estas variables el servicio arranca igual; solo `verification/request` y `verification/check` responden 503.
+
+### Probar
+
+- Automático: `dotnet test` (usa un `ISmsVerificationService` falso; no llama a Twilio).
+- Real: desde el front, Perfil > cambiar teléfono, con un número autorizado en Twilio. En los logs aparece el teléfono enmascarado; nunca el código ni los secretos.
+- La columna `UserManagement.Person.Phone` es `BIGINT` (antes `INT`) para guardar números de 10+ dígitos.
