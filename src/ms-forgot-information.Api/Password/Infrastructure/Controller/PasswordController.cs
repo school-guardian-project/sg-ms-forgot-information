@@ -1,4 +1,4 @@
-using Microsoft.AspNetCore.Mvc;
+﻿using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.RateLimiting;
 using ms_forgot_information.Api.Password.Application.Dto;
 using ms_forgot_information.Api.Password.Domain.Ports.In;
@@ -22,7 +22,7 @@ public class PasswordController(
         logger.LogInformation("Forgot request received for {Email}", EmailLogMask.Mask(dto.Email));
         await forgotPasswordUseCase.ExecuteAsync(dto, ip, ct);
 
-        return Accepted(new { message = "Si el correo existe, enviaremos un código de verificación." });
+        return Accepted(new { message = "Enviamos un código de verificación a tu correo." });
     }
 
     [HttpPost("forgot/verify")]

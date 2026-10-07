@@ -1,4 +1,4 @@
-using Microsoft.Extensions.Logging;
+﻿using Microsoft.Extensions.Logging;
 using ms_forgot_information.Api.PhoneChange.Application.Dto;
 using ms_forgot_information.Api.PhoneChange.Domain.Ports.In;
 using ms_forgot_information.Api.Shared.Application.Services;
@@ -10,8 +10,7 @@ using ms_forgot_information.Api.Shared.Domain.Port.Out;
 namespace ms_forgot_information.Api.PhoneChange.Application.UseCase;
 
 /// <summary>
-/// Sends the identity SMS (Twilio Verify) to the CURRENT phone. Completes silently when the email is unknown or the
-/// phone does not match the stored one, so the endpoint cannot be used to discover accounts or phones.
+/// Sends the identity SMS (Twilio Verify) to the CURRENT phone. Throws AccountNotFoundException or PhoneMismatchException so the client can say why no SMS was sent.
 /// </summary>
 public class RequestPhoneChangeService(
     IIdentityDirectoryClient identityDirectory,
@@ -25,10 +24,16 @@ public class RequestPhoneChangeService(
         var currentPhone = InputValidators.NormalizePhone(dto.CurrentPhone);
         var profile = await identityDirectory.FindProfileByEmailAsync(email, ct);
 
-        if (profile is null || !await identityDirectory.PhoneMatchesAsync(profile.ProfileId, currentPhone, ct))
+        if (profile is null)
         {
-            logger.LogInformation("Phone change identity requested for an unknown email or non-matching phone: no SMS sent");
-            return;
+            logger.LogInformation("Phone change identity requested for an unknown email: no SMS sent");
+            throw new AccountNotFoundException();
+        }
+
+        if (!await identityDirectory.PhoneMatchesAsync(profile.ProfileId, currentPhone, ct))
+        {
+            logger.LogInformation("Phone change identity requested with a non-matching phone for profile {ProfileId}: no SMS sent", profile.ProfileId);
+            throw new PhoneMismatchException();
         }
 
         try
@@ -51,10 +56,12 @@ public class RequestPhoneChangeService(
         catch (TooManyRequestsException)
         {
             logger.LogInformation("Phone change rate-limited for profile {ProfileId}", profile.ProfileId);
+            throw;
         }
         catch (VerificationException ex)
         {
             logger.LogWarning("Phone change identity SMS could not be sent for profile {ProfileId}: {Reason}", profile.ProfileId, ex.GetType().Name);
+            throw;
         }
     }
 }

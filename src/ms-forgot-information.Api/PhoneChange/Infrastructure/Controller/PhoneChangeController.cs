@@ -1,4 +1,4 @@
-using Microsoft.AspNetCore.Mvc;
+﻿using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.RateLimiting;
 using ms_forgot_information.Api.PhoneChange.Application.Dto;
 using ms_forgot_information.Api.PhoneChange.Domain.Ports.In;
@@ -11,6 +11,7 @@ public class PhoneChangeController(
     IRequestPhoneChangeUseCase requestUseCase,
     IVerifyPhoneChangeIdentityUseCase verifyIdentityUseCase,
     IRequestPhoneVerificationUseCase requestVerificationUseCase,
+    IResendPhoneVerificationUseCase resendVerificationUseCase,
     ICheckPhoneVerificationUseCase checkVerificationUseCase) : ControllerBase
 {
     private string Ip => HttpContext.Connection.RemoteIpAddress?.ToString() ?? "unknown";
@@ -20,7 +21,7 @@ public class PhoneChangeController(
     public async Task<IActionResult> RequestIdentityCode([FromBody] RequestPhoneChangeDto dto, CancellationToken ct)
     {
         await requestUseCase.ExecuteAsync(dto, Ip, ct);
-        return Accepted(new { message = "Si los datos coinciden, enviaremos un código por SMS." });
+        return Accepted(new { message = "Enviamos un código por SMS al teléfono actual." });
     }
 
     [HttpPost("verify")]
@@ -34,6 +35,14 @@ public class PhoneChangeController(
     {
         await requestVerificationUseCase.ExecuteAsync(dto, Ip, ct);
         return Accepted(new { message = "Enviamos un código por SMS al nuevo teléfono." });
+    }
+
+    [HttpPost("verification/resend")]
+    [EnableRateLimiting("otp-public")]
+    public async Task<IActionResult> ResendVerification([FromBody] ResendPhoneVerificationDto dto, CancellationToken ct)
+    {
+        await resendVerificationUseCase.ExecuteAsync(dto, Ip, ct);
+        return Accepted(new { message = "Enviamos un nuevo código por SMS al nuevo teléfono." });
     }
 
     [HttpPost("verification/check")]

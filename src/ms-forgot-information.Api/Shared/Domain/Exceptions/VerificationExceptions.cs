@@ -30,3 +30,9 @@ public sealed class UpstreamUpdateException(string message, Exception inner)
 
 /// <summary>Delivery of the recovery email failed. Never exposes provider details; the inner exception is for logs only.</summary>
 public sealed class NotificationDeliveryException(Exception inner) : Exception("Notification delivery failed.", inner);
+
+/// <summary>No active account matches the email. Surfaced on purpose so the user knows why nothing was sent.</summary>
+public sealed class AccountNotFoundException() : VerificationException("No encontramos una cuenta con ese correo.");
+
+/// <summary>The phone typed does not match the one stored for the account.</summary>
+public sealed class PhoneMismatchException() : VerificationException("El teléfono no coincide con el registrado en la cuenta.");

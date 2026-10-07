@@ -1,4 +1,4 @@
-﻿using ms_forgot_information.Api.EmailChange.Application.UseCase;
+using ms_forgot_information.Api.EmailChange.Application.UseCase;
 using ms_forgot_information.Api.EmailChange.Domain.Ports.In;
 using ms_forgot_information.Api.Password.Application.UseCase;
 using ms_forgot_information.Api.PhoneChange.Application.UseCase;
@@ -44,11 +44,13 @@ public static class ServiceCollectionExtensions
         services.AddScoped<IRequestEmailChangeUseCase, RequestEmailChangeService>();
         services.AddScoped<IVerifyEmailChangeCodeUseCase, VerifyEmailChangeCodeService>();
         services.AddScoped<ISubmitNewEmailUseCase, SubmitNewEmailService>();
+        services.AddScoped<IResendNewEmailUseCase, ResendNewEmailService>();
         services.AddScoped<IConfirmEmailChangeUseCase, ConfirmEmailChangeService>();
 
         services.AddScoped<IRequestPhoneChangeUseCase, RequestPhoneChangeService>();
         services.AddScoped<IVerifyPhoneChangeIdentityUseCase, VerifyPhoneChangeIdentityService>();
         services.AddScoped<IRequestPhoneVerificationUseCase, RequestPhoneVerificationService>();
+        services.AddScoped<IResendPhoneVerificationUseCase, ResendPhoneVerificationService>();
         services.AddScoped<ICheckPhoneVerificationUseCase, CheckPhoneVerificationService>();
 
         return services;

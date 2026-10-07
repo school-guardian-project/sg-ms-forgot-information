@@ -26,3 +26,8 @@ public interface IConfirmEmailChangeUseCase
 {
     Task ExecuteAsync(ConfirmEmailChangeDto dto, CancellationToken ct);
 }
+/// <summary>Resends the code to the NEW mailbox after step 3.</summary>
+public interface IResendNewEmailUseCase
+{
+    Task ExecuteAsync(ResendNewEmailDto dto, string requestIp, CancellationToken ct);
+}

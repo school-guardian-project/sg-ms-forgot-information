@@ -10,7 +10,7 @@ using ms_forgot_information.Api.Shared.Domain.Port.Out;
 namespace ms_forgot_information.Api.EmailChange.Application.UseCase;
 
 /// <summary>
-/// Behaves identically whether the email exists or not (no account enumeration). The code only ever goes
+/// Reports why nothing was sent (unknown account, rate limit, delivery failure) so the client can tell the user. The code only ever goes
 /// to the address IAM returns for that profile, never to an address supplied by the caller.
 /// </summary>
 public class RequestEmailChangeService(
@@ -26,7 +26,7 @@ public class RequestEmailChangeService(
         if (profile is null)
         {
             logger.LogInformation("Email change requested for an unknown email {Email}: no code sent", EmailLogMask.Mask(email));
-            return;
+            throw new AccountNotFoundException();
         }
 
         try
@@ -36,10 +36,12 @@ public class RequestEmailChangeService(
         catch (TooManyRequestsException)
         {
             logger.LogInformation("Email change rate-limited for profile {ProfileId}", profile.ProfileId);
+            throw;
         }
         catch (NotificationDeliveryException)
         {
             logger.LogWarning("Email change code could not be delivered for profile {ProfileId}", profile.ProfileId);
+            throw;
         }
     }
 }

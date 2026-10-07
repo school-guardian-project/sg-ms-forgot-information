@@ -1,4 +1,4 @@
-using System.Text.RegularExpressions;
+﻿using System.Text.RegularExpressions;
 using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Extensions.Options;
 using ms_forgot_information.Api.Password.Application.Dto;
@@ -143,18 +143,15 @@ public class EmailDeliveryAndResetTokenTests
     }
 
     [Fact]
-    public async Task Forgot_password_gives_the_same_outcome_for_known_unknown_and_undeliverable_emails()
+    public async Task Forgot_password_reports_unknown_and_undeliverable_emails()
     {
         var identity = new FakeIdentityDirectoryClient();
         identity.ProfilesByEmail["known@example.com"] = Guid.NewGuid();
         var (service, repo, _) = Build(new FailingEmailSender());
         var useCase = new ForgotPasswordService(identity, service, NullLogger<ForgotPasswordService>.Instance);
 
-        var known = await Record.ExceptionAsync(() => useCase.ExecuteAsync(new ForgotPasswordRequestDto("known@example.com"), "127.0.0.1", CancellationToken.None));
-        var unknown = await Record.ExceptionAsync(() => useCase.ExecuteAsync(new ForgotPasswordRequestDto("unknown@example.com"), "127.0.0.1", CancellationToken.None));
-
-        Assert.Null(known);
-        Assert.Null(unknown);
+        await Assert.ThrowsAsync<NotificationDeliveryException>(() => useCase.ExecuteAsync(new ForgotPasswordRequestDto("known@example.com"), "127.0.0.1", CancellationToken.None));
+        await Assert.ThrowsAsync<AccountNotFoundException>(() => useCase.ExecuteAsync(new ForgotPasswordRequestDto("unknown@example.com"), "127.0.0.1", CancellationToken.None));
         Assert.Equal(1, repo.Count);
     }
 }

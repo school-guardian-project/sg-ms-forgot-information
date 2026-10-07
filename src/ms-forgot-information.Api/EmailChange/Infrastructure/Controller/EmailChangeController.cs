@@ -11,6 +11,7 @@ public class EmailChangeController(
     IRequestEmailChangeUseCase requestUseCase,
     IVerifyEmailChangeCodeUseCase verifyUseCase,
     ISubmitNewEmailUseCase submitNewEmailUseCase,
+    IResendNewEmailUseCase resendNewEmailUseCase,
     IConfirmEmailChangeUseCase confirmUseCase) : ControllerBase
 {
     private string Ip => HttpContext.Connection.RemoteIpAddress?.ToString() ?? "unknown";
@@ -20,7 +21,7 @@ public class EmailChangeController(
     public async Task<IActionResult> RequestCode([FromBody] RequestEmailChangeDto dto, CancellationToken ct)
     {
         await requestUseCase.ExecuteAsync(dto, Ip, ct);
-        return Accepted(new { message = "Si el correo existe, enviaremos un código de verificación." });
+        return Accepted(new { message = "Enviamos un código de verificación a tu correo." });
     }
 
     [HttpPost("verify")]
@@ -34,6 +35,14 @@ public class EmailChangeController(
     {
         await submitNewEmailUseCase.ExecuteAsync(dto, Ip, ct);
         return Accepted(new { message = "Enviamos un código al nuevo correo." });
+    }
+
+    [HttpPost("resend-new")]
+    [EnableRateLimiting("otp-public")]
+    public async Task<IActionResult> ResendNew([FromBody] ResendNewEmailDto dto, CancellationToken ct)
+    {
+        await resendNewEmailUseCase.ExecuteAsync(dto, Ip, ct);
+        return Accepted(new { message = "Enviamos un nuevo código al nuevo correo." });
     }
 
     [HttpPost("verify-new")]

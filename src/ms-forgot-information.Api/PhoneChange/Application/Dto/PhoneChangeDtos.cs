@@ -27,3 +27,7 @@ public sealed record CheckPhoneVerificationDto(
     [param: Required, EmailAddress, MaxLength(100)] string Email,
     [param: Required, MaxLength(20)] string NewPhone,
     [param: Required, RegularExpression(@"^\d{4,10}$")] string Code);
+/// <summary>Resends the SMS to the new phone already authorized by the identity step.</summary>
+public sealed record ResendPhoneVerificationDto(
+    [param: Required, EmailAddress, MaxLength(100)] string Email,
+    [param: Required, MaxLength(20)] string NewPhone);

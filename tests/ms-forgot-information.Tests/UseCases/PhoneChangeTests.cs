@@ -208,12 +208,15 @@ public class PhoneChangeTests
     [Fact]
     public async Task Rate_limits_identity_sms_per_profile()
     {
-        for (var i = 0; i < 4; i++)
+        for (var i = 0; i < 3; i++)
         {
             await IdentityRequest().ExecuteAsync(new RequestPhoneChangeDto(Email, CurrentPhone), "127.0.0.1", CancellationToken.None);
         }
 
-        Assert.Equal(3, _sms.StartedFor.Count); // the 4th is throttled silently
+        await Assert.ThrowsAsync<TooManyRequestsException>(() =>
+            IdentityRequest().ExecuteAsync(new RequestPhoneChangeDto(Email, CurrentPhone), "127.0.0.1", CancellationToken.None));
+
+        Assert.Equal(3, _sms.StartedFor.Count);
     }
 
     [Fact]
@@ -227,20 +230,16 @@ public class PhoneChangeTests
     [Fact]
     public async Task Identity_sms_is_not_sent_when_the_phone_does_not_match_the_profile()
     {
-        var exception = await Record.ExceptionAsync(() =>
+        await Assert.ThrowsAsync<PhoneMismatchException>(() =>
             IdentityRequest().ExecuteAsync(new RequestPhoneChangeDto(Email, "+573009999999"), "127.0.0.1", CancellationToken.None));
-
-        Assert.Null(exception);
         Assert.Empty(_sms.StartedFor);
     }
 
     [Fact]
     public async Task Identity_sms_is_not_sent_for_an_unknown_email()
     {
-        var exception = await Record.ExceptionAsync(() =>
+        await Assert.ThrowsAsync<AccountNotFoundException>(() =>
             IdentityRequest().ExecuteAsync(new RequestPhoneChangeDto("nobody@example.com", CurrentPhone), "127.0.0.1", CancellationToken.None));
-
-        Assert.Null(exception);
         Assert.Empty(_sms.StartedFor);
     }
 

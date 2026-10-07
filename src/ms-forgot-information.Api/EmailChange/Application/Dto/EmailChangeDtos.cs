@@ -20,3 +20,6 @@ public sealed record SubmitNewEmailDto(
 public sealed record ConfirmEmailChangeDto(
     [param: Required, EmailAddress, MaxLength(100)] string Email,
     [param: Required] string ResetToken);
+/// <summary>Resends the code to the new mailbox already authorized by a verified current mailbox.</summary>
+public sealed record ResendNewEmailDto(
+    [param: Required, EmailAddress, MaxLength(100)] string Email);

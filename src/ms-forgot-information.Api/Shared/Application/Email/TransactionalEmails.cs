@@ -12,7 +12,7 @@ public static class TransactionalEmails
 {
     private sealed record Copy(string Subject, string Hero, string HeroSubtitle, string Intro, string Caption, string Ignore);
 
-    private static Copy CopyFor(Purpose purpose) => purpose switch
+    private static Copy CopyFor(Purpose purpose, bool isPasswordChange = false) => purpose switch
     {
         Purpose.EmailChange => new("Código para cambiar tu correo — Guardian Escolar", "Confirma el cambio de correo",
             "Protegemos tu cuenta en cada cambio", "Recibimos una solicitud para cambiar el correo de tu cuenta de Guardian Escolar. Usa este código para confirmar que eres tú.",
@@ -23,14 +23,17 @@ public static class TransactionalEmails
         Purpose.PhoneChange => new("Código para cambiar tu teléfono — Guardian Escolar", "Confirma el cambio de teléfono",
             "Protegemos tu cuenta en cada cambio", "Recibimos una solicitud para cambiar el teléfono de tu cuenta de Guardian Escolar. Usa este código para confirmar que eres tú.",
             "Código de verificación", "Si no solicitaste este cambio, puedes ignorar este correo de forma segura. Tu teléfono actual no cambiará."),
+        Purpose.PasswordReset when isPasswordChange => new("Código para cambiar tu contraseña — Guardian Escolar", "Confirma el cambio de contraseña",
+            "Protegemos tu cuenta en cada cambio", "Recibimos una solicitud para cambiar la contraseña de tu cuenta de Guardian Escolar. Usa este código para confirmar que eres tú.",
+            "Código de verificación", "Si no solicitaste este cambio, puedes ignorar este correo de forma segura. Tu contraseña actual no cambiará."),
         _ => new("Código para recuperar tu contraseña — Guardian Escolar", "Restablecer contraseña",
             "Recupera el acceso a tu cuenta de forma segura", "Recibimos una solicitud para restablecer la contraseña de tu cuenta en Guardian Escolar. Ingresa este código en la aplicación para continuar.",
             "Tu código de recuperación", "Si no solicitaste este cambio, puedes ignorar este correo de forma segura. Tu contraseña actual no cambiará."),
     };
 
-    public static EmailContent VerificationCode(EmailBrandingOptions branding, Purpose purpose, string code, int expirationMinutes, string? userName = null)
+    public static EmailContent VerificationCode(EmailBrandingOptions branding, Purpose purpose, string code, int expirationMinutes, string? userName = null, bool isPasswordChange = false)
     {
-        var c = CopyFor(purpose);
+        var c = CopyFor(purpose, isPasswordChange);
         var expiry = $"Vence en {expirationMinutes} minutos y solo se puede usar una vez.";
 
         var html = GuardianEmailTemplate.Layout(

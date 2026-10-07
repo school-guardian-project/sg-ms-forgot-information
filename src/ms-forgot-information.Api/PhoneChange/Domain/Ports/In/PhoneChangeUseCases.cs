@@ -25,3 +25,8 @@ public interface ICheckPhoneVerificationUseCase
 {
     Task ExecuteAsync(CheckPhoneVerificationDto dto, CancellationToken ct);
 }
+/// <summary>Resends the SMS to the NEW phone after step 3.</summary>
+public interface IResendPhoneVerificationUseCase
+{
+    Task ExecuteAsync(ResendPhoneVerificationDto dto, string requestIp, CancellationToken ct);
+}

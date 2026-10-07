@@ -10,9 +10,7 @@ using ms_forgot_information.Api.Shared.Application.Validation;
 namespace ms_forgot_information.Api.Password.Application.UseCase;
 
 /// <summary>
-/// Always behaves the same way to the caller whether the email exists or not — the only
-/// way to tell them apart must never be the HTTP response (ADR-less security requirement:
-/// no user enumeration on password recovery).
+/// Reports why no code was sent (unknown account, rate limit, delivery failure) so the client can tell the user.
 /// </summary>
 public class ForgotPasswordService(
     IIdentityDirectoryClient identityDirectory,
@@ -27,25 +25,24 @@ public class ForgotPasswordService(
         if (profile is null)
         {
             logger.LogInformation("Password reset requested for an unknown email {Email}: IAM returned no active profile, no code sent", EmailLogMask.Mask(email));
-            return;
+            throw new AccountNotFoundException();
         }
 
         logger.LogInformation("IAM resolved {Requested} to recipient {Recipient}", EmailLogMask.Mask(email), EmailLogMask.Mask(profile.Email));
 
         try
         {
-            await verificationCodeService.IssueAsync(profile.ProfileId, Purpose.PasswordReset, profile.Email, requestIp, ct);
+            await verificationCodeService.IssueAsync(profile.ProfileId, Purpose.PasswordReset, profile.Email, requestIp, ct, dto.IsPasswordChange);
         }
         catch (TooManyRequestsException)
         {
-            // Swallowed on purpose: a 429 here would reveal the email exists. The per-profile
-            // rate limit already did its job by not sending another code.
             logger.LogInformation("Password reset rate-limited for profile {ProfileId}", profile.ProfileId);
+            throw;
         }
         catch (NotificationDeliveryException)
         {
-            // Swallowed on purpose: a 5xx here would reveal the email exists. Already logged by VerificationCodeService.
             logger.LogWarning("Password reset code could not be delivered for profile {ProfileId}", profile.ProfileId);
+            throw;
         }
     }
 }

@@ -26,7 +26,7 @@ public class VerificationCodeService(
     private readonly EmailBrandingOptions _branding = branding?.Value ?? new EmailBrandingOptions();
     private readonly OtpOptions _options = options.Value;
 
-    public async Task IssueAsync(Guid profileId, Purpose purpose, string target, string requestIp, CancellationToken ct)
+    public async Task IssueAsync(Guid profileId, Purpose purpose, string target, string requestIp, CancellationToken ct, bool isPasswordChange = false)
     {
         var now = timeProvider.GetUtcNow().UtcDateTime;
         var windowStart = now.AddMinutes(-_options.RequestWindowMinutes);
@@ -54,7 +54,7 @@ public class VerificationCodeService(
 
         try
         {
-            await DeliverAsync(target, code, purpose, ct);
+            await DeliverAsync(target, code, purpose, ct, isPasswordChange);
         }
         catch (Exception ex) when (ex is not OperationCanceledException)
         {
@@ -90,6 +90,23 @@ public class VerificationCodeService(
             _options.MaxAttempts, requestIp, now);
 
         await repository.AddAsync(request, ct);
+        return request;
+    }
+
+    /// <summary>
+    /// Latest challenge that was authorized but never completed (pending or expired). A resend may only go to the
+    /// destination already authorized by that challenge, never to a caller-supplied one.
+    /// </summary>
+    public async Task<VerificationRequest> GetResendableChallengeAsync(Guid profileId, Purpose purpose, CancellationToken ct)
+    {
+        var request = await repository.GetActiveAsync(profileId, purpose, ct)
+            ?? throw new InvalidCodeException();
+
+        if (request.Status is not (VerificationStatus.Pending or VerificationStatus.Expired))
+        {
+            throw new InvalidCodeException();
+        }
+
         return request;
     }
 
@@ -224,9 +241,9 @@ public class VerificationCodeService(
         await repository.UpdateAsync(request, ct);
     }
 
-    private async Task DeliverAsync(string target, string code, Purpose purpose, CancellationToken ct)
+    private async Task DeliverAsync(string target, string code, Purpose purpose, CancellationToken ct, bool isPasswordChange = false)
     {
-        var email = TransactionalEmails.VerificationCode(_branding, purpose, code, _options.ExpirationMinutes);
+        var email = TransactionalEmails.VerificationCode(_branding, purpose, code, _options.ExpirationMinutes, isPasswordChange: isPasswordChange);
         await emailSender.SendAsync(target, email.Subject, email.Text, email.Html, ct);
     }
 }

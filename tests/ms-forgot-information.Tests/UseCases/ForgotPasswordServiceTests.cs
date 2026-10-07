@@ -1,6 +1,7 @@
-using Microsoft.Extensions.Logging.Abstractions;
+﻿using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Extensions.Options;
 using ms_forgot_information.Api.Password.Application.Dto;
+using ms_forgot_information.Api.Shared.Domain.Exceptions;
 using ms_forgot_information.Api.Password.Application.UseCase;
 using ms_forgot_information.Api.Shared.Application.Options;
 using ms_forgot_information.Api.Shared.Application.Otp;
@@ -27,14 +28,12 @@ public class ForgotPasswordServiceTests
     }
 
     [Fact]
-    public async Task Does_not_issue_a_code_when_the_email_does_not_exist_but_does_not_throw_either()
+    public async Task Reports_account_not_found_and_issues_no_code_when_the_email_does_not_exist()
     {
         var (useCase, repo, _) = Build();
 
-        var exception = await Record.ExceptionAsync(
+        await Assert.ThrowsAsync<AccountNotFoundException>(
             () => useCase.ExecuteAsync(new ForgotPasswordRequestDto("unknown@example.com"), "127.0.0.1", CancellationToken.None));
-
-        Assert.Null(exception);
         Assert.Equal(0, repo.Count);
     }
 
