@@ -1,15 +1,14 @@
 # sg-ms-forgot-information
 
-Microservicio .NET 10 dedicado exclusivamente a **recuperar contraseñas por correo**. Envía
-un código numérico de seis dígitos por SMTP, verifica el código y solicita a `ms-iam` que
-guarde la contraseña nueva. No almacena contraseñas ni ofrece cambio autenticado de
-contraseña, correo o teléfono.
+Microservicio .NET 10 para **recuperar contraseñas y cambiar correos o teléfonos**.
+Envía códigos por SMTP o verifica teléfonos mediante Twilio Verify y solicita a
+`ms-iam` que actualice los datos. No almacena contraseñas.
 
 ## Flujo
 
 1. `POST /api/v1/password/forgot`: busca el perfil por correo y, si existe, guarda el hash del
-   código y lo envía por correo. Siempre responde `202 Accepted` con el mismo mensaje, exista
-   o no el correo.
+   código y lo envía por correo. Responde `202 Accepted` si se envía el código;
+   si la cuenta no existe responde 404 con `code: account_not_found`.
 2. `POST /api/v1/password/forgot/verify`: valida el código y devuelve un token opaco de
    restablecimiento.
 3. `POST /api/v1/password/reset`: valida el token, actualiza la contraseña en `ms-iam` y
@@ -66,6 +65,12 @@ las variables en el entorno de ejecución o usa un gestor de secretos.
 
 ## Ejecutar
 
+Compose publica un puerto fijo `8091:8080`. La web debe usar
+`API_FORGOT_INFORMATION_URL=http://localhost:8091`; publicar solo `"8080"` asigna
+un puerto aleatorio que no coincide con esa URL. IAM debe ofrecer las rutas internas
+`/api/profiles/**` y recibir `APP_INTERNAL_API_KEY` con el mismo valor privado de
+`INTERNAL_API_KEY` que envia este servicio. No basta con que funcione el login.
+
 Con el IAM real, SQL Server y la red compartida `sg-services-network` en ejecución:
 
 ```powershell
@@ -96,7 +101,7 @@ Tanto el teléfono actual como el nuevo se verifican con un SMS real enviado por
 
 ### Flujo (`/api/v1/phone/change/*`)
 
-1. `request {email, currentPhone}`: si el correo existe y `currentPhone` (E.164) coincide con el teléfono guardado (IAM `POST /api/profiles/{id}/phone/matches`), Twilio envía un SMS a ese número. Responde 202 siempre (no revela si existe/coincide); formato inválido -> 400.
+1. `request {email, currentPhone}`: si el correo existe y `currentPhone` (E.164) coincide con el teléfono guardado (IAM `POST /api/profiles/{id}/phone/matches`), Twilio envía un SMS a ese número. Una cuenta inexistente responde 404 con `code: account_not_found`; formato inválido -> 400.
 2. `verify {email, currentPhone, code}`: Twilio valida el código del teléfono actual y devuelve un `resetToken` de un solo uso.
 3. `verification/request {email, resetToken, newPhone}`: valida que `newPhone` sea E.164 (`+573001234567`), y pide a Twilio enviar el SMS **exactamente a ese número**.
 4. `verification/check {email, newPhone, code}`: consulta a Twilio. Solo si responde `approved` se actualiza el teléfono en IAM (`PUT /api/profiles/{id}/phone`). Cualquier otro resultado se rechaza (400) y no cambia nada.

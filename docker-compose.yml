@@ -2,6 +2,7 @@ services:
   ms-forgot-information.api:
     container_name: ms-forgot-information
     image: ms-forgot-information.api
+    restart: always
     build:
       context: .
       dockerfile: src/ms-forgot-information.Api/Dockerfile
