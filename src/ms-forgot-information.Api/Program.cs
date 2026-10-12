@@ -35,7 +35,8 @@ builder.Services.Configure<TwilioOptions>(builder.Configuration.GetSection(Twili
 builder.Services.Configure<IdentityDirectoryOptions>(builder.Configuration.GetSection(IdentityDirectoryOptions.SectionName));
 
 builder.Services.AddDbContext<ForgotInformationContext>(options =>
-    options.UseSqlServer(builder.Configuration.GetConnectionString("DefaultConnection")));
+    options.UseSqlServer(builder.Configuration.GetConnectionString("DefaultConnection"),
+        sql => sql.EnableRetryOnFailure(3, TimeSpan.FromSeconds(5), null)));
 
 var identityDirectoryOptions = builder.Configuration.GetSection(IdentityDirectoryOptions.SectionName).Get<IdentityDirectoryOptions>()
     ?? new IdentityDirectoryOptions();
@@ -77,6 +78,25 @@ builder.Services.AddApplicationServices(builder.Configuration);
 builder.Services.AddRateLimiter(options =>
 {
     options.RejectionStatusCode = StatusCodes.Status429TooManyRequests;
+
+    // Techo global (no depende de IP ni de usuario): acota el trabajo simultaneo
+    // y la rafaga para que un flood desde una sola IP, o con IP falsificada via
+    // cabeceras, nunca sature el backend. La concurrencia va primero para que un
+    // rechazo de la ventana no consuma cupo ya adquirido.
+    options.GlobalLimiter = PartitionedRateLimiter.CreateChained(
+        PartitionedRateLimiter.Create<HttpContext, string>(_ =>
+            RateLimitPartition.GetConcurrencyLimiter("global", _ => new ConcurrencyLimiterOptions
+            {
+                PermitLimit = 40, // ~ Max Pool Size (conexiones simultaneas a BD)
+                QueueLimit = 0
+            })),
+        PartitionedRateLimiter.Create<HttpContext, string>(_ =>
+            RateLimitPartition.GetFixedWindowLimiter("global", _ => new FixedWindowRateLimiterOptions
+            {
+                PermitLimit = 100,
+                Window = TimeSpan.FromSeconds(10),
+                QueueLimit = 0
+            })));
 
     // Defense-in-depth per-IP limiter for anonymous OTP endpoints; the authoritative
     // per-profile limiter lives in VerificationCodeService (see DEC-005).
