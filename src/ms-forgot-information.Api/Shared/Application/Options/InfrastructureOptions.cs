@@ -4,9 +4,10 @@ public sealed class IdentityDirectoryOptions
 {
     public const string SectionName = "IdentityDirectory";
 
-    public string IamServiceBaseUrl { get; set; } = string.Empty;
+    /// <summary>Address of the ms-iam internal gRPC server (contract iam.v1).</summary>
+    public string GrpcAddress { get; set; } = string.Empty;
 
-    /// <summary>Shared secret sent to iam-service in X-Internal-Api-Key. Must come from a secret store in production.</summary>
+    /// <summary>Shared secret sent to iam-service in the x-internal-api-key gRPC metadata. Must come from a secret store in production.</summary>
     public string IamApiKey { get; set; } = string.Empty;
 }
 

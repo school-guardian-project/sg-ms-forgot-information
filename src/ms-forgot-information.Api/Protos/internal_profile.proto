@@ -1,0 +1,69 @@
+syntax = "proto3";
+
+// Internal contract v1 owned by ms-iam. Consumed by sg-ms-forgot-information
+// (identity directory lookups and credential updates). The HTTP counterpart
+// (/api/profiles/**) was removed: inter-service traffic is gRPC only (ADR-005).
+// Authentication: metadata header "x-internal-api-key" (shared secret from env).
+package iam.v1;
+option csharp_namespace = "ms_forgot_information.Api.Shared.Infrastructure.Grpc";
+
+option java_multiple_files = true;
+option java_package = "com.school_guardian.ms_iam.infrastructure.grpc.contract";
+option java_outer_classname = "InternalProfileProto";
+
+service InternalProfileService {
+  // Returns the active profile matching the email, or NOT_FOUND.
+  rpc FindProfileByEmail (FindProfileByEmailRequest) returns (ProfileLookup);
+
+  // Checks the stored phone of an active profile, or NOT_FOUND.
+  rpc PhoneMatches (PhoneMatchesRequest) returns (PhoneMatchesResponse);
+
+  // Updates the password hash of an active profile, or NOT_FOUND.
+  rpc UpdatePassword (UpdatePasswordRequest) returns (UpdatePasswordResponse);
+
+  // Updates the email of an active profile; ALREADY_EXISTS when taken,
+  // NOT_FOUND when the profile does not exist.
+  rpc UpdateEmail (UpdateEmailRequest) returns (UpdateEmailResponse);
+
+  // Updates the phone (E.164) of an active profile, or NOT_FOUND.
+  rpc UpdatePhone (UpdatePhoneRequest) returns (UpdatePhoneResponse);
+}
+
+message FindProfileByEmailRequest {
+  string email = 1;
+}
+
+message ProfileLookup {
+  string profile_id = 1;
+  string email = 2;
+}
+
+message PhoneMatchesRequest {
+  string profile_id = 1;
+  string phone_e164 = 2;
+}
+
+message PhoneMatchesResponse {
+  bool matches = 1;
+}
+
+message UpdatePasswordRequest {
+  string profile_id = 1;
+  string new_password = 2;
+}
+
+message UpdatePasswordResponse {}
+
+message UpdateEmailRequest {
+  string profile_id = 1;
+  string new_email = 2;
+}
+
+message UpdateEmailResponse {}
+
+message UpdatePhoneRequest {
+  string profile_id = 1;
+  string new_phone_e164 = 2;
+}
+
+message UpdatePhoneResponse {}
