@@ -2,10 +2,11 @@ using System.Net;
 using System.Text;
 using Microsoft.Extensions.Logging.Abstractions;
 using ms_forgot_information.Api.Shared.Infrastructure.Clients;
-using Xunit;
+using NUnit.Framework;
 
 namespace ms_forgot_information.Tests.Infrastructure;
 
+[FixtureLifeCycle(LifeCycle.InstancePerTestCase)]
 public class IdentityDirectoryHttpClientTests
 {
     private sealed class StubHandler(Func<HttpRequestMessage, HttpResponseMessage> respond) : HttpMessageHandler
@@ -37,7 +38,7 @@ public class IdentityDirectoryHttpClientTests
         return (new IdentityDirectoryHttpClient(new SingleClientFactory(http), NullLogger<IdentityDirectoryHttpClient>.Instance), handler);
     }
 
-    [Fact]
+    [Test]
     public async Task Resolves_any_email_to_the_profile_returned_by_iam_and_escapes_the_query()
     {
         var id = Guid.NewGuid();
@@ -48,20 +49,20 @@ public class IdentityDirectoryHttpClientTests
 
         var profile = await client.FindProfileByEmailAsync("a+b@gmail.com", CancellationToken.None);
 
-        Assert.Equal(id, profile!.ProfileId);
-        Assert.Equal("a+b@gmail.com", profile.Email);
-        Assert.Equal("/api/profiles/by-email?email=a%2Bb%40gmail.com", handler.LastRequest!.RequestUri!.PathAndQuery);
+        Assert.That(profile!.ProfileId, Is.EqualTo(id));
+        Assert.That(profile.Email, Is.EqualTo("a+b@gmail.com"));
+        Assert.That(handler.LastRequest!.RequestUri!.PathAndQuery, Is.EqualTo("/api/profiles/by-email?email=a%2Bb%40gmail.com"));
     }
 
-    [Fact]
+    [Test]
     public async Task Returns_null_when_iam_answers_404()
     {
         var (client, _) = Build(_ => new HttpResponseMessage(HttpStatusCode.NotFound));
 
-        Assert.Null(await client.FindProfileByEmailAsync("nobody@gmail.com", CancellationToken.None));
+        Assert.That(await client.FindProfileByEmailAsync("nobody@gmail.com", CancellationToken.None), Is.Null);
     }
 
-    [Fact]
+    [Test]
     public async Task Sends_the_internal_api_key_and_the_new_password_to_iam()
     {
         var id = Guid.NewGuid();
@@ -69,18 +70,18 @@ public class IdentityDirectoryHttpClientTests
 
         await client.UpdatePasswordAsync(id, "NewPassw0rd!", CancellationToken.None);
 
-        Assert.Equal(HttpMethod.Put, handler.LastRequest!.Method);
-        Assert.Equal($"/api/profiles/{id}/password", handler.LastRequest.RequestUri!.AbsolutePath);
-        Assert.Equal("test-key", handler.LastRequest.Headers.GetValues("X-Internal-Api-Key").Single());
-        Assert.Contains("\"password\":\"NewPassw0rd!\"", handler.LastBody);
+        Assert.That(handler.LastRequest!.Method, Is.EqualTo(HttpMethod.Put));
+        Assert.That(handler.LastRequest.RequestUri!.AbsolutePath, Is.EqualTo($"/api/profiles/{id}/password"));
+        Assert.That(handler.LastRequest.Headers.GetValues("X-Internal-Api-Key").Single(), Is.EqualTo("test-key"));
+        Assert.That(handler.LastBody, Does.Contain("\"password\":\"NewPassw0rd!\""));
     }
 
-    [Fact]
+    [Test]
     public async Task Rejected_credentials_from_iam_surface_as_an_error()
     {
         var (client, _) = Build(_ => new HttpResponseMessage(HttpStatusCode.Unauthorized));
 
-        await Assert.ThrowsAsync<HttpRequestException>(() => client.FindProfileByEmailAsync("a@b.com", CancellationToken.None));
+        Assert.ThrowsAsync<HttpRequestException>(() => client.FindProfileByEmailAsync("a@b.com", CancellationToken.None));
     }
 
 }
