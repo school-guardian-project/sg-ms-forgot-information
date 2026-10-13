@@ -1,3 +1,4 @@
+using Microsoft.Extensions.Options;
 using ms_forgot_information.Api.EmailChange.Application.UseCase;
 using ms_forgot_information.Api.EmailChange.Domain.Ports.In;
 using ms_forgot_information.Api.Password.Application.UseCase;
@@ -8,7 +9,7 @@ using ms_forgot_information.Api.Shared.Application.Options;
 using ms_forgot_information.Api.Shared.Application.Otp;
 using ms_forgot_information.Api.Shared.Application.Services;
 using ms_forgot_information.Api.Shared.Domain.Port.Out;
-using ms_forgot_information.Api.Shared.Infrastructure.Clients;
+using ms_forgot_information.Api.Shared.Infrastructure.Grpc;
 using ms_forgot_information.Api.Shared.Infrastructure.Notifications;
 using ms_forgot_information.Api.Shared.Infrastructure.Persistence.Repository;
 
@@ -33,7 +34,11 @@ public static class ServiceCollectionExtensions
         services.AddScoped<IVerificationRequestRepository, VerificationRequestRepository>();
         services.AddScoped<VerificationCodeService>();
 
-        services.AddScoped<IIdentityDirectoryClient, IdentityDirectoryHttpClient>();
+        // gRPC-only bridge to ms-iam (contract iam.v1.InternalProfileService).
+        services.AddSingleton<IIdentityDirectoryClient>(sp =>
+            new IdentityDirectoryGrpcClient(
+                sp.GetRequiredService<IOptions<IdentityDirectoryOptions>>().Value,
+                sp.GetRequiredService<ILogger<IdentityDirectoryGrpcClient>>()));
         services.AddScoped<IEmailSender, SmtpEmailSender>();
         services.AddScoped<ISmsVerificationService, TwilioVerifyService>();
 

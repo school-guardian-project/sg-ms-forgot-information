@@ -11,7 +11,7 @@ services:
     environment:
       ASPNETCORE_ENVIRONMENT: Production
       ConnectionStrings__DefaultConnection: "${ConnectionStrings__DefaultConnection:?Set ConnectionStrings__DefaultConnection in .env}"
-      IdentityDirectory__IamServiceBaseUrl: "http://ms-iam:8080"
+      IdentityDirectory__GrpcAddress: "http://ms-iam:5001"
       IdentityDirectory__IamApiKey: "${INTERNAL_API_KEY:?Set INTERNAL_API_KEY to the same value used by ms-iam}"
       Otp__HashPepper: "${OTP_HASH_PEPPER:?Set OTP_HASH_PEPPER in .env}"
       Smtp__Host: "${SMTP_HOST:?Set SMTP_HOST in .env}"
@@ -32,6 +32,17 @@ services:
       Cors__AllowedOrigins__0: "${CORS_ALLOWED_ORIGIN:-http://localhost:4200}"
     env_file:
       - .env
+    networks:
+      - sg-services-network
+
+  ms-forgot-information.tests:
+    container_name: ms-forgot-information-tests
+    image: mcr.microsoft.com/dotnet/sdk:10.0
+    working_dir: /src
+    volumes:
+      - ./:/src
+    command: dotnet test ./tests/ms-forgot-information.Tests/ --nologo
+    profiles: [ "tests" ]
     networks:
       - sg-services-network
 
