@@ -1,4 +1,4 @@
-﻿using Microsoft.Extensions.Logging.Abstractions;
+using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Extensions.Options;
 using ms_forgot_information.Api.Password.Application.Dto;
 using ms_forgot_information.Api.Shared.Domain.Exceptions;
@@ -7,10 +7,11 @@ using ms_forgot_information.Api.Shared.Application.Options;
 using ms_forgot_information.Api.Shared.Application.Otp;
 using ms_forgot_information.Api.Shared.Application.Services;
 using ms_forgot_information.Tests.Fakes;
-using Xunit;
+using NUnit.Framework;
 
 namespace ms_forgot_information.Tests.UseCases;
 
+[FixtureLifeCycle(LifeCycle.InstancePerTestCase)]
 public class ForgotPasswordServiceTests
 {
     private static (ForgotPasswordService UseCase, FakeVerificationRequestRepository Repo, FakeIdentityDirectoryClient Identity) Build()
@@ -27,17 +28,17 @@ public class ForgotPasswordServiceTests
         return (useCase, repo, identity);
     }
 
-    [Fact]
+    [Test]
     public async Task Reports_account_not_found_and_issues_no_code_when_the_email_does_not_exist()
     {
         var (useCase, repo, _) = Build();
 
-        await Assert.ThrowsAsync<AccountNotFoundException>(
+        Assert.ThrowsAsync<AccountNotFoundException>(
             () => useCase.ExecuteAsync(new ForgotPasswordRequestDto("unknown@example.com"), "127.0.0.1", CancellationToken.None));
-        Assert.Equal(0, repo.Count);
+        Assert.That(repo.Count, Is.EqualTo(0));
     }
 
-    [Fact]
+    [Test]
     public async Task Issues_a_code_when_the_email_exists()
     {
         var (useCase, repo, identity) = Build();
@@ -46,6 +47,6 @@ public class ForgotPasswordServiceTests
 
         await useCase.ExecuteAsync(new ForgotPasswordRequestDto("known@example.com"), "127.0.0.1", CancellationToken.None);
 
-        Assert.Equal(1, repo.Count);
+        Assert.That(repo.Count, Is.EqualTo(1));
     }
 }

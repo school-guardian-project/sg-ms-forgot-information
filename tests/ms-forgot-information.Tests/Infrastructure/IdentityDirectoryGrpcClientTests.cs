@@ -1,3 +1,4 @@
+using System.Net;
 using Grpc.Core;
 using Grpc.Net.Client;
 using Microsoft.AspNetCore.Builder;
@@ -9,11 +10,12 @@ using Microsoft.Extensions.Logging.Abstractions;
 using ms_forgot_information.Api.Shared.Application.Options;
 using ms_forgot_information.Api.Shared.Domain.Exceptions;
 using ms_forgot_information.Api.Shared.Infrastructure.Grpc;
-using Xunit;
+using NUnit.Framework;
 
 namespace ms_forgot_information.Tests.Infrastructure;
 
-public class IdentityDirectoryGrpcClientTests : IAsyncLifetime
+[FixtureLifeCycle(LifeCycle.InstancePerTestCase)]
+public class IdentityDirectoryGrpcClientTests
 {
     private sealed class StubInternalProfileService : InternalProfileService.InternalProfileServiceBase
     {
@@ -70,11 +72,12 @@ public class IdentityDirectoryGrpcClientTests : IAsyncLifetime
     private WebApplication _server = null!;
     private GrpcChannel _channel = null!;
 
-    public async Task InitializeAsync()
+    [SetUp]
+    public async Task SetUp()
     {
         var builder = WebApplication.CreateSlimBuilder();
         builder.WebHost.ConfigureKestrel(k =>
-            k.ListenLocalhost(0, o => o.Protocols = HttpProtocols.Http2));
+            k.Listen(IPAddress.Loopback, 0, o => o.Protocols = HttpProtocols.Http2));
         builder.Services.AddGrpc();
         builder.Services.AddSingleton(_stub);
         _server = builder.Build();
@@ -83,7 +86,8 @@ public class IdentityDirectoryGrpcClientTests : IAsyncLifetime
         _channel = GrpcChannel.ForAddress(_server.Urls.First());
     }
 
-    public async Task DisposeAsync()
+    [TearDown]
+    public async Task TearDown()
     {
         _channel.Dispose();
         await _server.StopAsync();
@@ -95,7 +99,7 @@ public class IdentityDirectoryGrpcClientTests : IAsyncLifetime
             new IdentityDirectoryOptions { GrpcAddress = _server.Urls.First(), IamApiKey = apiKey ?? string.Empty },
             NullLogger<IdentityDirectoryGrpcClient>.Instance);
 
-    [Fact]
+    [Test]
     public async Task Resolves_the_email_to_the_profile_returned_by_iam()
     {
         var id = Guid.NewGuid();
@@ -107,73 +111,73 @@ public class IdentityDirectoryGrpcClientTests : IAsyncLifetime
 
         var profile = await BuildClient().FindProfileByEmailAsync("a+b@gmail.com", CancellationToken.None);
 
-        Assert.Equal(id, profile!.ProfileId);
-        Assert.Equal("a+b@gmail.com", profile.Email);
+        Assert.That(profile!.ProfileId, Is.EqualTo(id));
+        Assert.That(profile.Email, Is.EqualTo("a+b@gmail.com"));
     }
 
-    [Fact]
+    [Test]
     public async Task Returns_null_when_iam_answers_not_found()
     {
         _stub.OnFindProfileByEmail = null;
 
-        Assert.Null(await BuildClient().FindProfileByEmailAsync("nobody@gmail.com", CancellationToken.None));
+        Assert.That(await BuildClient().FindProfileByEmailAsync("nobody@gmail.com", CancellationToken.None), Is.Null);
     }
 
-    [Fact]
+    [Test]
     public async Task Sends_the_internal_api_key_and_the_new_password_to_iam()
     {
         var id = Guid.NewGuid();
 
         await BuildClient(apiKey: "test-key").UpdatePasswordAsync(id, "NewPassw0rd!", CancellationToken.None);
 
-        Assert.Equal(id.ToString(), _stub.LastPasswordRequest!.ProfileId);
-        Assert.Equal("NewPassw0rd!", _stub.LastPasswordRequest.NewPassword);
-        Assert.Equal("test-key", _stub.LastHeaders!.GetValue("x-internal-api-key"));
+        Assert.That(_stub.LastPasswordRequest!.ProfileId, Is.EqualTo(id.ToString()));
+        Assert.That(_stub.LastPasswordRequest.NewPassword, Is.EqualTo("NewPassw0rd!"));
+        Assert.That(_stub.LastHeaders!.GetValue("x-internal-api-key"), Is.EqualTo("test-key"));
     }
 
-    [Fact]
+    [Test]
     public async Task Forwards_the_new_phone_in_e164()
     {
         var id = Guid.NewGuid();
 
         await BuildClient().UpdatePhoneAsync(id, "+573001234567", CancellationToken.None);
 
-        Assert.Equal("+573001234567", _stub.LastPhoneRequest!.NewPhoneE164);
+        Assert.That(_stub.LastPhoneRequest!.NewPhoneE164, Is.EqualTo("+573001234567"));
     }
 
-    [Fact]
+    [Test]
     public async Task Phone_match_flag_comes_from_iam()
     {
         _stub.OnPhoneMatches = _ => new PhoneMatchesResponse { Matches = true };
 
-        Assert.True(await BuildClient().PhoneMatchesAsync(Guid.NewGuid(), "+573001234567", CancellationToken.None));
+        Assert.That(await BuildClient().PhoneMatchesAsync(Guid.NewGuid(), "+573001234567", CancellationToken.None), Is.True);
     }
 
-    [Fact]
+    [Test]
     public async Task Invalid_or_missing_phone_data_from_iam_counts_as_no_match()
     {
         _stub.OnPhoneMatches = null; // stub answers NOT_FOUND
 
-        Assert.False(await BuildClient().PhoneMatchesAsync(Guid.NewGuid(), "+573001234567", CancellationToken.None));
+        Assert.That(await BuildClient().PhoneMatchesAsync(Guid.NewGuid(), "+573001234567", CancellationToken.None), Is.False);
     }
 
-    [Fact]
-    public async Task Email_conflict_from_iam_surfaces_as_EmailAlreadyInUseException()
+    [Test]
+    public void Email_conflict_from_iam_surfaces_as_EmailAlreadyInUseException()
     {
         _stub.OnUpdateEmail = _ =>
             throw new RpcException(new Status(StatusCode.AlreadyExists, "Email already in use"));
 
-        await Assert.ThrowsAsync<EmailAlreadyInUseException>(
+        Assert.ThrowsAsync<EmailAlreadyInUseException>(
             () => BuildClient().UpdateEmailAsync(Guid.NewGuid(), "taken@gmail.com", CancellationToken.None));
     }
 
-    [Fact]
-    public async Task Rejected_credentials_from_iam_surface_as_an_error()
+    [Test]
+    public void Rejected_credentials_from_iam_surface_as_an_error()
     {
         _stub.OnFindProfileByEmail = _ =>
             throw new RpcException(new Status(StatusCode.Unauthenticated, "Missing or invalid internal API key"));
 
-        await Assert.ThrowsAsync<RpcException>(
+        Assert.ThrowsAsync<RpcException>(
             () => BuildClient().FindProfileByEmailAsync("a@b.com", CancellationToken.None));
     }
 }

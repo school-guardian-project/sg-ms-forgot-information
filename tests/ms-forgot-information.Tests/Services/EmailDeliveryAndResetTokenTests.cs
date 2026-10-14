@@ -1,4 +1,4 @@
-﻿using System.Text.RegularExpressions;
+using System.Text.RegularExpressions;
 using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Extensions.Options;
 using ms_forgot_information.Api.Password.Application.Dto;
@@ -10,10 +10,11 @@ using ms_forgot_information.Api.Shared.Domain.Exceptions;
 using ms_forgot_information.Api.Shared.Domain.Model;
 using ms_forgot_information.Api.Shared.Domain.Port.Out;
 using ms_forgot_information.Tests.Fakes;
-using Xunit;
+using NUnit.Framework;
 
 namespace ms_forgot_information.Tests.Services;
 
+[FixtureLifeCycle(LifeCycle.InstancePerTestCase)]
 public class EmailDeliveryAndResetTokenTests
 {
     private sealed class FailingEmailSender : IEmailSender
@@ -36,22 +37,22 @@ public class EmailDeliveryAndResetTokenTests
 
     private static string ExtractCode(FakeEmailSender email) => Regex.Match(email.Sent[0].Body, @"\d{6}").Value;
 
-    [Fact]
+    [Test]
     public async Task A_failed_delivery_throws_and_burns_the_code()
     {
         var (service, repo, _) = Build(new FailingEmailSender());
         var profileId = Guid.NewGuid();
 
-        await Assert.ThrowsAsync<NotificationDeliveryException>(
+        Assert.ThrowsAsync<NotificationDeliveryException>(
             () => service.IssueAsync(profileId, Purpose.PasswordReset, "user@example.com", "127.0.0.1", CancellationToken.None));
 
-        Assert.Equal(1, repo.Count);
+        Assert.That(repo.Count, Is.EqualTo(1));
         // The code never reached the user, so no code (not even a guessed one) may be accepted afterwards.
-        await Assert.ThrowsAsync<InvalidCodeException>(
+        Assert.ThrowsAsync<InvalidCodeException>(
             () => service.VerifyAsync(profileId, Purpose.PasswordReset, "000000", CancellationToken.None));
     }
 
-    [Fact]
+    [Test]
     public async Task A_valid_reset_token_is_accepted_and_a_wrong_one_is_rejected()
     {
         var email = new FakeEmailSender();
@@ -62,14 +63,14 @@ public class EmailDeliveryAndResetTokenTests
         var ticket = await service.VerifyAsync(profileId, Purpose.PasswordReset, ExtractCode(email), CancellationToken.None);
 
         var consumed = await service.ConsumeResetTokenAsync(profileId, Purpose.PasswordReset, ticket.ResetToken, CancellationToken.None);
-        Assert.Equal(profileId, consumed.ProfileId);
-        await Assert.ThrowsAsync<InvalidCodeException>(
+        Assert.That(consumed.ProfileId, Is.EqualTo(profileId));
+        Assert.ThrowsAsync<InvalidCodeException>(
             () => service.VerifyAsync(profileId, Purpose.PasswordReset, ExtractCode(email), CancellationToken.None));
-        await Assert.ThrowsAsync<InvalidResetTokenException>(
+        Assert.ThrowsAsync<InvalidResetTokenException>(
             () => service.ConsumeResetTokenAsync(profileId, Purpose.PasswordReset, "wrong-token", CancellationToken.None));
     }
 
-    [Fact]
+    [Test]
     public async Task Reset_updates_iam_then_consumes_the_reset_token()
     {
         var email = new FakeEmailSender();
@@ -85,11 +86,11 @@ public class EmailDeliveryAndResetTokenTests
 
         await reset.ExecuteAsync(request, CancellationToken.None);
 
-        Assert.Equal("NewPassw0rd!", identity.LastPasswordUpdate);
-        await Assert.ThrowsAsync<InvalidResetTokenException>(() => reset.ExecuteAsync(request, CancellationToken.None));
+        Assert.That(identity.LastPasswordUpdate, Is.EqualTo("NewPassw0rd!"));
+        Assert.ThrowsAsync<InvalidResetTokenException>(() => reset.ExecuteAsync(request, CancellationToken.None));
     }
 
-    [Fact]
+    [Test]
     public async Task Reset_token_remains_valid_when_iam_update_fails()
     {
         var email = new FakeEmailSender();
@@ -103,14 +104,14 @@ public class EmailDeliveryAndResetTokenTests
         var reset = new ResetPasswordService(identity, service);
         var request = new ResetPasswordRequestDto("user@example.com", ticket.ResetToken, "NewPassw0rd!", "NewPassw0rd!");
 
-        await Assert.ThrowsAsync<UpstreamUpdateException>(() => reset.ExecuteAsync(request, CancellationToken.None));
+        Assert.ThrowsAsync<UpstreamUpdateException>(() => reset.ExecuteAsync(request, CancellationToken.None));
 
         identity.ThrowOnNextUpdate = false;
         await reset.ExecuteAsync(request, CancellationToken.None);
-        Assert.Equal("NewPassw0rd!", identity.LastPasswordUpdate);
+        Assert.That(identity.LastPasswordUpdate, Is.EqualTo("NewPassw0rd!"));
     }
 
-    [Fact]
+    [Test]
     public async Task An_expired_reset_token_is_rejected()
     {
         var email = new FakeEmailSender();
@@ -121,11 +122,11 @@ public class EmailDeliveryAndResetTokenTests
 
         clock.Advance(TimeSpan.FromMinutes(6));
 
-        await Assert.ThrowsAsync<InvalidResetTokenException>(
+        Assert.ThrowsAsync<InvalidResetTokenException>(
             () => service.ConsumeResetTokenAsync(profileId, Purpose.PasswordReset, ticket.ResetToken, CancellationToken.None));
     }
 
-    [Fact]
+    [Test]
     public async Task A_used_code_cannot_be_verified_again_after_completion()
     {
         var email = new FakeEmailSender();
@@ -136,13 +137,13 @@ public class EmailDeliveryAndResetTokenTests
         var ticket = await service.VerifyAsync(profileId, Purpose.PasswordReset, code, CancellationToken.None);
         await service.CompleteAsync(ticket.RequestId, CancellationToken.None);
 
-        await Assert.ThrowsAsync<InvalidCodeException>(
+        Assert.ThrowsAsync<InvalidCodeException>(
             () => service.VerifyAsync(profileId, Purpose.PasswordReset, code, CancellationToken.None));
-        await Assert.ThrowsAsync<InvalidResetTokenException>(
+        Assert.ThrowsAsync<InvalidResetTokenException>(
             () => service.ConsumeResetTokenAsync(profileId, Purpose.PasswordReset, ticket.ResetToken, CancellationToken.None));
     }
 
-    [Fact]
+    [Test]
     public async Task Forgot_password_reports_unknown_and_undeliverable_emails()
     {
         var identity = new FakeIdentityDirectoryClient();
@@ -150,8 +151,8 @@ public class EmailDeliveryAndResetTokenTests
         var (service, repo, _) = Build(new FailingEmailSender());
         var useCase = new ForgotPasswordService(identity, service, NullLogger<ForgotPasswordService>.Instance);
 
-        await Assert.ThrowsAsync<NotificationDeliveryException>(() => useCase.ExecuteAsync(new ForgotPasswordRequestDto("known@example.com"), "127.0.0.1", CancellationToken.None));
-        await Assert.ThrowsAsync<AccountNotFoundException>(() => useCase.ExecuteAsync(new ForgotPasswordRequestDto("unknown@example.com"), "127.0.0.1", CancellationToken.None));
-        Assert.Equal(1, repo.Count);
+        Assert.ThrowsAsync<NotificationDeliveryException>(() => useCase.ExecuteAsync(new ForgotPasswordRequestDto("known@example.com"), "127.0.0.1", CancellationToken.None));
+        Assert.ThrowsAsync<AccountNotFoundException>(() => useCase.ExecuteAsync(new ForgotPasswordRequestDto("unknown@example.com"), "127.0.0.1", CancellationToken.None));
+        Assert.That(repo.Count, Is.EqualTo(1));
     }
 }

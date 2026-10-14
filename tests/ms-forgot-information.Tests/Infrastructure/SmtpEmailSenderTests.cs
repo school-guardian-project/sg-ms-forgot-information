@@ -6,10 +6,11 @@ using Microsoft.Extensions.Options;
 using ms_forgot_information.Api.Shared.Application.Options;
 using ms_forgot_information.Api.Shared.Domain.Exceptions;
 using ms_forgot_information.Api.Shared.Infrastructure.Notifications;
-using Xunit;
+using NUnit.Framework;
 
 namespace ms_forgot_information.Tests.Infrastructure;
 
+[FixtureLifeCycle(LifeCycle.InstancePerTestCase)]
 public class SmtpEmailSenderTests
 {
     /// <summary>Minimal in-process SMTP server (MailHog stand-in): accepts one message and records it.</summary>
@@ -42,7 +43,7 @@ public class SmtpEmailSenderTests
                     await writer.WriteLineAsync("354 go ahead");
                     while ((line = await reader.ReadLineAsync()) is not null && line != ".")
                     {
-                        data.AppendLine(line);
+                        data.Append(line).Append("\r\n");
                     }
                     await writer.WriteLineAsync("250 queued");
                 }
@@ -66,7 +67,7 @@ public class SmtpEmailSenderTests
     private static SmtpEmailSender Build(SmtpOptions options) =>
         new(Options.Create(options), NullLogger<SmtpEmailSender>.Instance);
 
-    [Fact]
+    [Test]
     public async Task Delivers_the_message_to_an_SMTP_server_without_credentials()
     {
         using var server = new FakeSmtpServer();
@@ -75,15 +76,15 @@ public class SmtpEmailSenderTests
         await sender.SendAsync("anyone@example.org", "Verification code", "Your code is 123456", CancellationToken.None);
 
         var data = await server.Received.Task.WaitAsync(TimeSpan.FromSeconds(5));
-        Assert.Contains("anyone@example.org", data);
-        Assert.Contains("charset=utf-8", data, StringComparison.OrdinalIgnoreCase);
+        Assert.That(data, Does.Contain("anyone@example.org"));
+        Assert.That(data, Does.Contain("charset=utf-8").IgnoreCase);
 
         var bodyStart = data.IndexOf("\r\n\r\n", StringComparison.Ordinal) + 4;
         var body = Encoding.UTF8.GetString(Convert.FromBase64String(data[bodyStart..].Trim()));
-        Assert.Contains("Your code is 123456", body);
+        Assert.That(body, Does.Contain("Your code is 123456"));
     }
 
-    [Fact]
+    [Test]
     public async Task Wraps_connection_failures_in_NotificationDeliveryException()
     {
         var listener = new TcpListener(IPAddress.Loopback, 0);
@@ -92,16 +93,16 @@ public class SmtpEmailSenderTests
         listener.Stop();
         var sender = Build(new SmtpOptions { Host = "127.0.0.1", Port = closedPort, EnableSsl = false, FromAddress = "no-reply@example.test", TimeoutSeconds = 2 });
 
-        await Assert.ThrowsAsync<NotificationDeliveryException>(
+        Assert.ThrowsAsync<NotificationDeliveryException>(
             () => sender.SendAsync("anyone@example.org", "s", "b", CancellationToken.None));
     }
 
-    [Fact]
+    [Test]
     public async Task Fails_with_NotificationDeliveryException_when_smtp_is_not_configured()
     {
         var sender = Build(new SmtpOptions());
 
-        await Assert.ThrowsAsync<NotificationDeliveryException>(
+        Assert.ThrowsAsync<NotificationDeliveryException>(
             () => sender.SendAsync("anyone@example.org", "s", "b", CancellationToken.None));
     }
 }
