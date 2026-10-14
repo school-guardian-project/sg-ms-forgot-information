@@ -1,3 +1,4 @@
+using System.Net;
 using Grpc.Core;
 using Grpc.Net.Client;
 using Microsoft.AspNetCore.Builder;
@@ -76,7 +77,7 @@ public class IdentityDirectoryGrpcClientTests
     {
         var builder = WebApplication.CreateSlimBuilder();
         builder.WebHost.ConfigureKestrel(k =>
-            k.ListenLocalhost(0, o => o.Protocols = HttpProtocols.Http2));
+            k.Listen(IPAddress.Loopback, 0, o => o.Protocols = HttpProtocols.Http2));
         builder.Services.AddGrpc();
         builder.Services.AddSingleton(_stub);
         _server = builder.Build();
