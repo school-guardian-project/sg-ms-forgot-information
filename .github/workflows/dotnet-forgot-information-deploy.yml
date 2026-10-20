@@ -1,0 +1,16 @@
+name: Deploy Forgot Information
+
+on:
+  push:
+    branches: [ "main" ]
+  pull_request:
+    branches: [ "main" ]
+
+jobs:
+  call-dotnet-workflow:
+    uses: school-guardian-project/.github/.github/workflows/deploy-dotnet.yml@main
+    with:
+      dockerfile_path: 'src/ms-forgot-information.Api/Dockerfile'
+      app_name: 'forgot-information-app'
+      host_port: 8080
+    secrets: inherit
