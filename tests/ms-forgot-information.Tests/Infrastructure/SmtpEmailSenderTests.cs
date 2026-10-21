@@ -43,7 +43,7 @@ public class SmtpEmailSenderTests
                     await writer.WriteLineAsync("354 go ahead");
                     while ((line = await reader.ReadLineAsync()) is not null && line != ".")
                     {
-                        data.AppendLine(line);
+                        data.Append(line).Append("\r\n");
                     }
                     await writer.WriteLineAsync("250 queued");
                 }

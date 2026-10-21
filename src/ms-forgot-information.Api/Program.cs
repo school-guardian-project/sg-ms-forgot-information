@@ -62,17 +62,6 @@ if (!builder.Environment.IsDevelopment())
     }
 }
 
-builder.Services.AddHttpClient("iam-service", client =>
-{
-    client.BaseAddress = new Uri(identityDirectoryOptions.IamServiceBaseUrl);
-
-    // Service-to-service credential expected by ms-iam on /api/profiles/**.
-    if (!string.IsNullOrWhiteSpace(identityDirectoryOptions.IamApiKey))
-    {
-        client.DefaultRequestHeaders.Add("X-Internal-Api-Key", identityDirectoryOptions.IamApiKey);
-    }
-});
-
 builder.Services.AddApplicationServices(builder.Configuration);
 
 builder.Services.AddRateLimiter(options =>
