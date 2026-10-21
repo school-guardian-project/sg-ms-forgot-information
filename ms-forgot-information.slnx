@@ -1,0 +1,4 @@
+<Solution>
+  <Project Path="src/ms-forgot-information.Api/ms-forgot-information.Api.csproj" />
+  <Project Path="tests/ms-forgot-information.Tests/ms-forgot-information.Tests.csproj" />
+</Solution>
