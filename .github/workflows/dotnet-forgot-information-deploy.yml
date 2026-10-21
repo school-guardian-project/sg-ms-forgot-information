@@ -6,6 +6,10 @@ on:
   pull_request:
     branches: [ "main" ]
 
+permissions:
+  id-token: write
+  contents: read
+
 jobs:
   call-dotnet-workflow:
     uses: school-guardian-project/.github/.github/workflows/deploy-dotnet.yml@main
