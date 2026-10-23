@@ -131,3 +131,5 @@ Sin estas variables el servicio arranca igual; solo `verification/request` y `ve
 - Automático: `dotnet test` (usa un `ISmsVerificationService` falso; no llama a Twilio).
 - Real: desde el front, Perfil > cambiar teléfono, con un número autorizado en Twilio. En los logs aparece el teléfono enmascarado; nunca el código ni los secretos.
 - La columna `UserManagement.Person.Phone` es `BIGINT` (antes `INT`) para guardar números de 10+ dígitos.
+
+eppaa
