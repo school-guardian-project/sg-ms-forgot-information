@@ -133,3 +133,7 @@ Sin estas variables el servicio arranca igual; solo `verification/request` y `ve
 - La columna `UserManagement.Person.Phone` es `BIGINT` (antes `INT`) para guardar números de 10+ dígitos.
 
 eppaa
+
+
+asf
+asf
