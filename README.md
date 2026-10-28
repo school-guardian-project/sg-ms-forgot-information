@@ -137,3 +137,20 @@ eppaa
 
 asf
 asf
+# Persistence rollback: application-supplied verification values
+
+The DDL-alignment changes from commit `40f6d26` have been reverted. The EF
+configuration and missing-table initializer match their pre-integration versions.
+Verification requests again supply attempt counts, status and timestamps from
+the application, without declaring them database-generated defaults.
+
+The domain already initializes `AttemptCount` to zero and the repository maps
+that value. Declaring `HasDefaultValue(0)` caused EF to treat zero as an unset,
+database-generated value and omit it on insertion. Existing tables created by
+the earlier initializer may not have a SQL default, resulting in SQL error 515.
+Assigning zero again in the domain would not fix that EF omission.
+
+This rollback does not alter existing tables, defaults, constraints or data.
+The regression test captures repository entities and SQL Server model metadata
+without opening a database connection. Real SQL insertion and deployed recovery
+flows still require verification after rebuilding the service.
