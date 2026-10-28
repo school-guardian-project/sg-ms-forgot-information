@@ -28,18 +28,18 @@ public static class VerificationRequestSchemaInitializer
             (
                 [Id] uniqueidentifier NOT NULL,
                 [ProfileId] uniqueidentifier NOT NULL,
-                [Purpose] varchar(20) NOT NULL,
-                [Target] varchar(100) NOT NULL,
-                [CodeHash] varchar(255) NOT NULL,
-                [ResetTokenHash] varchar(255) NULL,
+                [Purpose] nvarchar(20) NOT NULL,
+                [Target] nvarchar(100) NOT NULL,
+                [CodeHash] nvarchar(255) NOT NULL,
+                [ResetTokenHash] nvarchar(255) NULL,
                 [ExpiresAt] datetime2 NOT NULL,
-                [AttemptCount] tinyint NOT NULL DEFAULT 0,
-                [MaxAttempts] tinyint NOT NULL DEFAULT 5,
-                [Status] varchar(20) NOT NULL CHECK (Status IN ('Pending', 'Verified', 'Consumed', 'Expired', 'Locked')) DEFAULT 'Pending',
-                [CreatedAt] datetime2 NOT NULL DEFAULT GETUTCDATE(),
+                [AttemptCount] tinyint NOT NULL,
+                [MaxAttempts] tinyint NOT NULL,
+                [Status] nvarchar(20) NOT NULL,
+                [CreatedAt] datetime2 NOT NULL,
                 [VerifiedAt] datetime2 NULL,
                 [ConsumedAt] datetime2 NULL,
-                [RequestIp] varchar(50) NOT NULL,
+                [RequestIp] nvarchar(50) NOT NULL,
                 CONSTRAINT [PK_VerificationRequest] PRIMARY KEY ([Id])
             );
         END;
