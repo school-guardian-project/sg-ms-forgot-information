@@ -1,6 +1,6 @@
-# sg-ms-forgot-information
+# Servicio Forgot Information
 
-Password recovery and contact change microservice for School Guardian, sending codes by SMTP or verifying phones through Twilio Verify, without storing passwords.
+Password recovery and contact change microservice for School Guardian. Sends recovery codes by SMTP or verifies phones through Twilio Verify, and requests `ms-iam` to update user data. Does not store passwords.
 
 ## Getting Started
 
@@ -13,14 +13,21 @@ Requirements for the software and other tools to build, test and push:
 - .NET SDK
 - Docker
 - Docker Compose
+- The `sg-services-network` Docker network (external, shared across services)
 
 ### Installing
 
 A step by step series of examples that tell you how to get a development environment running.
 
-Start the service with Docker Compose:
+Create the external network if it does not exist:
+
+    docker network create sg-services-network
+
+Start the service:
 
     docker compose up -d
+
+The API listens on port 8080 (mapped to 8091 on the host). Required environment variables must be set in `.env`, including database connection, SMTP credentials, Twilio credentials, OTP hash pepper, and the internal API key shared with `ms-iam`.
 
 ## Running the tests
 
@@ -28,15 +35,17 @@ Explain how to run the automated tests for this system.
 
 ### Sample Tests
 
-Explain what these tests test and why.
+Tests are executed against the test service that runs in Docker Compose for each service:
+
+    docker compose --profile tests run ms-forgot-information.tests
 
 ### Style test
 
-Checks if the best practices and the right coding style has been used.
+Checks if the best practices and the right coding style has been used, validated through the test service in Docker Compose.
 
 ## Deployment
 
-Add additional notes to deploy this on a live system.
+Deployment is performed via GitHub Actions to an AWS EC2 instance.
 
 ## Built With
 
@@ -45,7 +54,7 @@ Add additional notes to deploy this on a live system.
 
 ## Contributing
 
-Please read [CONTRIBUTING.md](CONTRIBUTING.md) for details on our code of conduct and the process for submitting pull requests.
+Please read [CONTRIBUTING.md](https://github.com/school-guardian-project/.github/blob/main/CONTRIBUTING.md) for details on our code of conduct and the process for submitting pull requests.
 
 ## License
 
