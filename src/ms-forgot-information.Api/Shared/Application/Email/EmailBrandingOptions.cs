@@ -14,8 +14,11 @@ public sealed class EmailBrandingOptions
     /// <summary>Public https URL of the hero illustration (school bus + GPS + shield). Optional.</summary>
     public string HeroImageUrl { get; set; } = string.Empty;
 
-    public string SupportEmail { get; set; } = "sch00l.guard4n@gmail.com";
-    public string SupportPhone { get; set; } = "+57 314 4308274";
+    /// <summary>Support contact email. Configure via Branding:SupportEmail (env: BRANDING__SUPPORT_EMAIL). Empty by default; no hardcoded credentials.</summary>
+    public string SupportEmail { get; set; } = string.Empty;
+
+    /// <summary>Support contact phone. Configure via Branding:SupportPhone (env: BRANDING__SUPPORT_PHONE). Empty by default; no hardcoded credentials.</summary>
+    public string SupportPhone { get; set; } = string.Empty;
 
     /// <summary>Left empty on purpose: links are only rendered when the pages really exist.</summary>
     public string TermsUrl { get; set; } = string.Empty;

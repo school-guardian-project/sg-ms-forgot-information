@@ -7,7 +7,11 @@ namespace ms_forgot_information.Tests.Email;
 [FixtureLifeCycle(LifeCycle.InstancePerTestCase)]
 public class TransactionalEmailsTests
 {
-    private static readonly EmailBrandingOptions Branding = new();
+    private static readonly EmailBrandingOptions Branding = new()
+    {
+        SupportEmail = "support@example.com",
+        SupportPhone = "+1 555 000 0000",
+    };
 
     [TestCase(Purpose.PasswordReset)]
     [TestCase(Purpose.EmailChange)]
@@ -22,7 +26,7 @@ public class TransactionalEmailsTests
         Assert.That(email.Text, Does.Contain("10 minutos"));
         Assert.That(email.Subject, Does.Contain("Guardian Escolar"));
         Assert.That(email.Html, Does.Not.Contain("<script").IgnoreCase);
-        Assert.That(email.Html, Does.Contain("sch00l.guard4n@gmail.com"));
+        Assert.That(email.Html, Does.Contain("support@example.com"));
     }
 
     [Test]
